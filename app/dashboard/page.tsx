@@ -10,7 +10,7 @@ export default function DashboardPage() {
             <span className="inline-block px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-semibold tracking-wider mb-3">
               Panel de Control General
             </span>
-            <h1 className="text-3xl font-black tracking-tight">¡Bienvenida de nuevo, María!</h1>
+            <h1 className="text-3xl font-black tracking-tight">¡Bienvenida de nuevo, Cynthia!</h1>
             <p className="text-pink-100 text-sm mt-1 max-w-md">
               Aquí tienes el resumen comercial de tu red de vendedoras en tiempo real.
             </p>

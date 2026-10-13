@@ -42,11 +42,11 @@ export default function Navbar({ onToggleSidebar }: { onToggleSidebar?: () => vo
             className="flex items-center gap-3 p-1.5 pl-2.5 rounded-2xl hover:bg-pink-50/50 border border-transparent hover:border-pink-100 transition"
           >
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-bold text-slate-900 leading-tight">María López</p>
-              <p className="text-[10px] font-semibold text-fuchsia-600">Directora General</p>
+              <p className="text-xs font-bold text-slate-900 leading-tight">Cynthia Revilla</p>
+              <p className="text-[10px] font-semibold text-fuchsia-600">Directora </p>
             </div>
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-pink-500 text-white font-bold flex items-center justify-center text-xs shadow-md shadow-fuchsia-500/20">
-              ML
+              CR
             </div>
           </button>
 
