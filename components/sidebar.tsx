@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import axios from 'axios';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -16,6 +17,31 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { label: 'Expedientes', href: '/dashboard/expediente', icon: '📁' },
     { label: 'Red de Vendedoras', href: '/dashboard/usuarios', icon: '👑' },
   ];
+
+  const handleLogout = async () => {
+    try {
+      const refreshToken = localStorage.getItem('refresh_token');
+      const accessToken = localStorage.getItem('access_token');
+
+      if (refreshToken && accessToken) {
+        await axios.post(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout/`,
+          { refresh: refreshToken },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Error al cerrar sesión en el servidor:", error);
+    } finally {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      window.location.href = '/login';
+    }
+  };
 
   return (
     <>
@@ -76,17 +102,40 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </nav>
         </div>
 
-        {/* Perfil del Usuario en el Pie del Sidebar */}
-        <div className="p-4 m-3 rounded-2xl bg-neutral-950/80 border border-neutral-800/80">
-          <div className="flex items-center gap-3">
+        {/* Sección Inferior: Perfil + Botón de Cerrar Sesión */}
+        <div className="p-3 border-t border-neutral-800/80 bg-neutral-950/40 space-y-2">
+          {/* Perfil del Usuario */}
+          <div className="p-3 rounded-2xl bg-neutral-950/80 border border-neutral-800/80 flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-pink-500/10 text-pink-400 font-bold flex items-center justify-center text-xs border border-pink-500/20">
-              ML
+              CR
             </div>
             <div className="overflow-hidden">
-              <p className="text-xs font-bold text-neutral-200 truncate">María López</p>
-              <p className="text-[10px] text-fuchsia-400 font-bold">Directora General</p>
+              <p className="text-xs font-bold text-neutral-200 truncate">Cynthia</p>
+              <p className="text-[10px] text-fuchsia-400 font-bold">Directora</p>
             </div>
           </div>
+
+          {/* Botón de Cerrar Sesión */}
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-red-400 bg-red-950/20 hover:bg-red-900/40 border border-red-900/30 rounded-2xl transition-all duration-200 group shadow-sm"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-0.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+              />
+            </svg>
+            <span>Cerrar sesión</span>
+          </button>
         </div>
       </aside>
     </>
