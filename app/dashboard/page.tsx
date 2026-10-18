@@ -14,61 +14,81 @@ interface Sale {
   created_at: string;
 }
 
+interface DashboardSummary {
+  user: {
+    first_name: string;
+    role_display: string;
+  };
+  kpis: {
+    monthly_sales: string;
+    accounts_receivable_total: string;
+    accounts_receivable_count: string;
+    pending_expedientes: number;
+    active_sellers: number;
+  };
+  top_sellers: {
+    name: string;
+    team: string;
+    sales: string;
+  }[];
+}
+
 export default function DashboardPage() {
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [transactions, setTransactions] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchTransactions = async () => {
+    const fetchDashboardData = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/sales/`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        // Maneja tanto si DRF responde con lista directa o paginada (.results)
-        const data = Array.isArray(response.data) ? response.data : response.data.results;
-        setTransactions(data || []);
+        const headers = { Authorization: `Bearer ${token}` };
+
+        const [summaryRes, salesRes] = await Promise.all([
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/sales/dashboard-summary/`, { headers }),
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/sales/`, { headers }),
+        ]);
+
+        setSummary(summaryRes.data);
+
+        const salesData = Array.isArray(salesRes.data) ? salesRes.data : salesRes.data.results;
+        setTransactions(salesData || []);
       } catch (error) {
-        console.error('Error al cargar las transacciones:', error);
+        console.error('Error al cargar datos del dashboard:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTransactions();
+    fetchDashboardData();
   }, []);
 
   const kpis = [
     {
       title: 'Ventas del Mes',
-      val: '$148,250',
-      tag: '+12.5%',
+      val: summary?.kpis.monthly_sales || '$0.00',
+      tag: 'Corte al mes actual',
       color: 'border-fuchsia-500/30',
       href: '/dashboard/pos',
     },
     {
       title: 'Cuentas x Cobrar',
-      val: '$32,400',
-      tag: '18 cuentas',
+      val: summary?.kpis.accounts_receivable_total || '$0.00',
+      tag: summary?.kpis.accounts_receivable_count || '0 cuentas',
       color: 'border-pink-500/30',
       href: '/dashboard/expediente?tab=deudas',
     },
     {
       title: 'Expedientes x Validar',
-      val: '7',
+      val: summary?.kpis.pending_expedientes ?? 0,
       tag: 'Acción requerida',
       color: 'border-fuchsia-500/30',
       href: '/dashboard/expediente?tab=pendientes',
     },
     {
       title: 'Vendedoras Activas',
-      val: '42',
-      tag: '+3 esta semana',
+      val: summary?.kpis.active_sellers ?? 0,
+      tag: 'En tu red de ventas',
       color: 'border-pink-500/30',
       href: '/dashboard/usuarios?estado=activas',
     },
@@ -88,14 +108,16 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Banner Principal con Degradado */}
+      {/* Banner Principal dinámico */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-fuchsia-600 via-pink-600 to-rose-500 p-8 text-white shadow-2xl shadow-fuchsia-500/20">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <span className="inline-block px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-semibold tracking-wider mb-3">
-              Panel de Control General
+              Panel de Control General {summary?.user.role_display ? `• ${summary.user.role_display}` : ''}
             </span>
-            <h1 className="text-3xl font-black tracking-tight">¡Bienvenida de nuevo, Cynthia!</h1>
+            <h1 className="text-3xl font-black tracking-tight">
+              ¡Bienvenida de nuevo, {summary?.user.first_name || 'Usuaria'}!
+            </h1>
             <p className="text-pink-100 text-sm mt-1 max-w-md">
               Aquí tienes el resumen comercial de tu red de vendedoras en tiempo real.
             </p>
@@ -107,11 +129,10 @@ export default function DashboardPage() {
             ⚡ Registrar Venta Rápida
           </Link>
         </div>
-        {/* Adorno Neón de Fondo */}
         <div className="absolute -right-10 -bottom-10 w-64 h-64 rounded-full bg-white/10 blur-3xl pointer-events-none" />
       </div>
 
-      {/* Grid de Tarjetas KPI Interactivas */}
+      {/* Grid de Tarjetas KPI */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {kpis.map((kpi, idx) => (
           <Link
@@ -125,7 +146,9 @@ export default function DashboardPage() {
                 Ver detalle ➔
               </span>
             </div>
-            <p className="text-3xl font-black text-slate-900 mt-2">{kpi.val}</p>
+            <p className="text-3xl font-black text-slate-900 mt-2">
+              {loading ? '...' : kpi.val}
+            </p>
             <span className="inline-block text-[11px] font-bold text-fuchsia-600 bg-pink-50 px-3 py-1 rounded-full mt-3">
               {kpi.tag}
             </span>
@@ -133,7 +156,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Tablas Modernas con Coordinadoras */}
+      {/* Tablas con Datos Reales */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white rounded-3xl border border-pink-100 shadow-xl shadow-pink-500/5 overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-pink-50/40 to-transparent">
@@ -149,7 +172,7 @@ export default function DashboardPage() {
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-8 text-center text-xs text-slate-400 font-medium">
-                Cargando transacciones de la red...
+                Cargando datos del servidor...
               </div>
             ) : transactions.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-400 font-medium">
@@ -199,28 +222,30 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Top Vendedoras */}
+        {/* Top Vendedoras dinámico */}
         <div className="bg-white p-6 rounded-3xl border border-pink-100 shadow-xl shadow-pink-500/5 space-y-5">
           <h3 className="font-bold text-slate-900 text-lg border-b border-slate-100 pb-3">Líderes de Ventas</h3>
           <div className="space-y-4">
-            {[
-              { name: 'Ana Martínez', team: 'Laura Gómez', sales: '$28,400' },
-              { name: 'Sofía Ramírez', team: 'Patricia Ruiz', sales: '$24,100' },
-              { name: 'Carla Gómez', team: 'Laura Gómez', sales: '$19,800' },
-            ].map((v, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-2xl hover:bg-pink-50/50 transition">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-fuchsia-600 to-pink-500 text-white font-black flex items-center justify-center text-xs">
-                    #{i + 1}
+            {loading ? (
+              <p className="text-xs text-slate-400 text-center py-4">Cargando líderes...</p>
+            ) : !summary?.top_sellers || summary.top_sellers.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-4">Sin datos de ventas este mes.</p>
+            ) : (
+              summary.top_sellers.map((v, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-2xl hover:bg-pink-50/50 transition">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-fuchsia-600 to-pink-500 text-white font-black flex items-center justify-center text-xs">
+                      #{i + 1}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900 text-xs">{v.name}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">Coord: {v.team}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-slate-900 text-xs">{v.name}</p>
-                    <p className="text-[10px] text-slate-400 font-medium">Coord: {v.team}</p>
-                  </div>
+                  <span className="font-black text-fuchsia-600 text-sm">{v.sales}</span>
                 </div>
-                <span className="font-black text-fuchsia-600 text-sm">{v.sales}</span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
