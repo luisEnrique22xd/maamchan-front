@@ -1,7 +1,48 @@
 'use client';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import axios from 'axios';
+
+interface Sale {
+  id: number;
+  seller_name: string;
+  coordinator_name: string;
+  customer_name: string;
+  sale_type: string;
+  total_amount: string;
+  status: string;
+  created_at: string;
+}
 
 export default function DashboardPage() {
+  const [transactions, setTransactions] = useState<Sale[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        const response = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/sales/`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        // Maneja tanto si DRF responde con lista directa o paginada (.results)
+        const data = Array.isArray(response.data) ? response.data : response.data.results;
+        setTransactions(data || []);
+      } catch (error) {
+        console.error('Error al cargar las transacciones:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTransactions();
+  }, []);
+
   const kpis = [
     {
       title: 'Ventas del Mes',
@@ -33,32 +74,17 @@ export default function DashboardPage() {
     },
   ];
 
-  const transactions = [
-    {
-      name: 'Ana Martínez',
-      coordinadora: 'Laura Gómez',
-      mode: 'Contado',
-      amount: '$2,400.00',
-      status: 'Completado',
-      stColor: 'bg-emerald-100 text-emerald-800',
-    },
-    {
-      name: 'Carla Gómez',
-      coordinadora: 'Patricia Ruiz',
-      mode: 'Anticipo',
-      amount: '$1,000.00',
-      status: 'Pendiente',
-      stColor: 'bg-pink-100 text-pink-800',
-    },
-    {
-      name: 'Lucía Hernández',
-      coordinadora: 'Laura Gómez',
-      mode: 'Crédito',
-      amount: '$4,800.00',
-      status: 'En Plazo',
-      stColor: 'bg-amber-100 text-amber-800',
-    },
-  ];
+  const getStatusBadge = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'PAGADO':
+      case 'COMPLETADO':
+        return 'bg-emerald-100 text-emerald-800';
+      case 'PENDIENTE':
+        return 'bg-pink-100 text-pink-800';
+      default:
+        return 'bg-amber-100 text-amber-800';
+    }
+  };
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -113,7 +139,7 @@ export default function DashboardPage() {
           <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-pink-50/40 to-transparent">
             <div>
               <h3 className="font-bold text-slate-900 text-lg">Últimas Transacciones</h3>
-              <p className="text-xs text-slate-400">Movimientos procesados en la red de ventas</p>
+              <p className="text-xs text-slate-400">Movimientos en vivo de tu red de ventas</p>
             </div>
             <Link href="/dashboard/pos" className="text-xs font-bold text-fuchsia-600 hover:underline">
               Ver reporte →
@@ -121,40 +147,55 @@ export default function DashboardPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 text-slate-400 uppercase font-bold tracking-wider">
-                <tr>
-                  <th className="p-4 pl-6">Vendedora</th>
-                  <th className="p-4">Coordinadora</th>
-                  <th className="p-4">Modalidad</th>
-                  <th className="p-4">Monto</th>
-                  <th className="p-4">Estatus</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {transactions.map((row, i) => (
-                  <tr key={i} className="hover:bg-pink-50/30 transition">
-                    <td className="p-4 pl-6 font-bold text-slate-900">{row.name}</td>
-                    <td className="p-4">
-                      <span className="px-2.5 py-1 rounded-xl bg-fuchsia-50 font-semibold text-fuchsia-700 border border-fuchsia-200/50">
-                        {row.coordinadora}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className="px-2.5 py-1 rounded-xl bg-slate-100 font-semibold text-slate-600">
-                        {row.mode}
-                      </span>
-                    </td>
-                    <td className="p-4 font-black text-slate-900 text-sm">{row.amount}</td>
-                    <td className="p-4">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold ${row.stColor}`}>
-                        {row.status}
-                      </span>
-                    </td>
+            {loading ? (
+              <div className="p-8 text-center text-xs text-slate-400 font-medium">
+                Cargando transacciones de la red...
+              </div>
+            ) : transactions.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-400 font-medium">
+                No hay transacciones registradas todavía.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/80 text-slate-400 uppercase font-bold tracking-wider">
+                  <tr>
+                    <th className="p-4 pl-6">Vendedora</th>
+                    <th className="p-4">Coordinadora</th>
+                    <th className="p-4">Modalidad</th>
+                    <th className="p-4">Monto</th>
+                    <th className="p-4">Estatus</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {transactions.slice(0, 5).map((row) => (
+                    <tr key={row.id} className="hover:bg-pink-50/30 transition">
+                      <td className="p-4 pl-6">
+                        <p className="font-bold text-slate-900">{row.seller_name || 'Vendedora'}</p>
+                        <p className="text-[10px] text-slate-400 font-normal">Cliente: {row.customer_name || 'General'}</p>
+                      </td>
+                      <td className="p-4">
+                        <span className="px-2.5 py-1 rounded-xl bg-fuchsia-50 font-semibold text-fuchsia-700 border border-fuchsia-200/50">
+                          {row.coordinator_name || 'Venta Directa'}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span className="px-2.5 py-1 rounded-xl bg-slate-100 font-semibold text-slate-600">
+                          {row.sale_type || 'Contado'}
+                        </span>
+                      </td>
+                      <td className="p-4 font-black text-slate-900 text-sm">
+                        ${Number(row.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold ${getStatusBadge(row.status)}`}>
+                          {row.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
