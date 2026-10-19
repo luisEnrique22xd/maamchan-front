@@ -17,6 +17,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { label: 'Expedientes', href: '/dashboard/expediente', icon: '📁' },
     { label: 'Red de Vendedoras', href: '/dashboard/usuarios', icon: '👑' },
     { label: 'Inventario', href: '/dashboard/inventario', icon: '📦' },
+    { label: 'Proyecciones', href: '/dashboard/proyecciones', icon: '📈' },
   ];
 
   const handleLogout = async () => {
