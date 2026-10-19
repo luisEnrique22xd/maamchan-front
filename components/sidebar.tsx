@@ -69,9 +69,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               </div>
               <div>
                 <h1 className="text-lg font-black tracking-tight text-white flex items-center gap-1">
-                  Madam <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-pink-400">RED</span>
+                  Madame Chantal <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-pink-400">Tlaxcala</span>
                 </h1>
-                <p className="text-[10px] font-semibold text-pink-200/70">Gestión de Red de Ventas</p>
+                <p className="text-[10px] font-semibold text-pink-200/70">Sistema de administración</p>
               </div>
             </div>
             <button onClick={onClose} className="md:hidden text-neutral-400 hover:text-white">✕</button>
