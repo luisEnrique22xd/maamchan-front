@@ -47,8 +47,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 space-y-6 border border-pink-100">
         <div className="text-center">
-          <h1 className="text-3xl font-extrabold text-fuchsia-600 tracking-tight">Madam RED</h1>
-          <p className="text-sm text-slate-500 mt-1">Gestión comercial y red de ventas</p>
+          <h1 className="text-3xl font-extrabold text-fuchsia-600 tracking-tight">Madame Chantal Tlaxcala</h1>
+          <p className="text-sm text-slate-500 mt-1">Sistema de administración</p>
         </div>
 
         {error && (

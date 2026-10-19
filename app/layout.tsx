@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Madam RED",
+  title: "Madame Chantal | Tlaxcala",
   description: "Gestión comercial y red de ventas",
 };
 
