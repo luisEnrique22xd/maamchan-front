@@ -5,10 +5,15 @@ import axios from 'axios';
 interface TeamProgress {
   coordinator_id: number;
   coordinator_name: string;
-  target: number;
-  achieved: number;
+  target_amount: number;
+  achieved_amount: number;
+  target_orders: number;
+  achieved_orders: number;
   percentage: number;
-  remaining: number;
+  current_level: string;
+  estimated_cash_bonus: number;
+  estimated_free_product: number;
+  remaining_amount: number;
 }
 
 interface CampaignData {
@@ -20,6 +25,7 @@ interface CampaignData {
     end_date: string;
     global_target: number;
     total_real_sales: number;
+    total_real_orders: number;
     progress_percentage: number;
   };
   teams_progress: TeamProgress[];
@@ -51,7 +57,7 @@ export default function ProyeccionesPage() {
   if (loading) {
     return (
       <div className="p-8 text-center text-xs text-slate-400 font-medium">
-        Cargando proyecciones de la campaña...
+        Cargando proyecciones y niveles de campaña...
       </div>
     );
   }
@@ -76,7 +82,7 @@ export default function ProyeccionesPage() {
           </span>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">{campaign.name}</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Vigencia: {campaign.start_date} al {campaign.end_date}
+            Vigencia: {campaign.start_date} al {campaign.end_date} | Total Pedidos: {campaign.total_real_orders}
           </p>
         </div>
       </div>
@@ -85,7 +91,7 @@ export default function ProyeccionesPage() {
       <div className="bg-white p-8 rounded-3xl border border-pink-100 shadow-xl shadow-pink-500/5 space-y-6">
         <div className="flex flex-col md:flex-row justify-between md:items-end gap-4">
           <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Avance Meta Global</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Avance Meta Global en Dinero</p>
             <h2 className="text-4xl font-black text-slate-900 mt-1">
               ${campaign.total_real_sales.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
               <span className="text-sm font-medium text-slate-400 ml-2">
@@ -107,39 +113,64 @@ export default function ProyeccionesPage() {
         </div>
       </div>
 
-      {/* Desglose de Avance por Equipo / Coordinadora */}
+      {/* Desglose por Equipos / Coordinadoras y Niveles */}
       <div className="space-y-4">
-        <h3 className="font-bold text-slate-900 text-lg">Avance por Equipos de Coordinación</h3>
+        <h3 className="font-bold text-slate-900 text-lg">Desempeño y Bonos por Coordinación (Nivel Bronce)</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {teams_progress.map((team) => (
             <div
               key={team.coordinator_id}
-              className="bg-white p-6 rounded-3xl border border-pink-100 shadow-xl shadow-pink-500/5 flex flex-col justify-between space-y-4"
+              className="bg-white p-6 rounded-3xl border border-pink-100 shadow-xl shadow-pink-500/5 flex flex-col justify-between space-y-6"
             >
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Equipo / Coordinadora</p>
-                <h4 className="text-lg font-bold text-slate-900 mt-1">{team.coordinator_name}</h4>
+              <div className="flex justify-between items-start gap-2">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Coordinadora</p>
+                  <h4 className="text-lg font-bold text-slate-900 mt-0.5">{team.coordinator_name}</h4>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider">
+                  {team.current_level}
+                </span>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs font-bold">
-                  <span className="text-slate-600">Venta Lograda:</span>
-                  <span className="text-fuchsia-600">${team.achieved.toLocaleString('es-MX')}</span>
+              {/* Métricas de Pedidos y Ventas */}
+              <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500 font-medium">Pedidos Logrados:</span>
+                  <span className="font-bold text-slate-900">{team.achieved_orders} pedidos</span>
                 </div>
-                <div className="flex justify-between text-xs font-medium text-slate-400">
-                  <span>Meta Asignada:</span>
-                  <span>${team.target.toLocaleString('es-MX')}</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500 font-medium">Venta Lograda ($):</span>
+                  <span className="font-bold text-fuchsia-600">${team.achieved_amount.toLocaleString('es-MX')}</span>
                 </div>
-
-                {/* Mini Barra */}
-                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden mt-2">
+                
+                {/* Mini Barra de Progreso Económico */}
+                <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden mt-1">
                   <div
                     className="bg-fuchsia-600 h-full rounded-full transition-all duration-500"
                     style={{ width: `${team.percentage}%` }}
                   />
                 </div>
-                <p className="text-[10px] text-right font-bold text-slate-500">{team.percentage}% alcanzado</p>
+                <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                  <span>Meta: ${team.target_amount.toLocaleString('es-MX')}</span>
+                  <span>{team.percentage}%</span>
+                </div>
+              </div>
+
+              {/* Bonos Estimados basados en la Tabla */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                <div className="bg-pink-50/50 p-3 rounded-2xl border border-pink-100">
+                  <p className="text-[10px] font-bold text-pink-700 uppercase">Bono en Dinero</p>
+                  <p className="text-sm font-black text-slate-900 mt-1">
+                    ${team.estimated_cash_bonus.toLocaleString('es-MX')}
+                  </p>
+                </div>
+                <div className="bg-purple-50/50 p-3 rounded-2xl border border-purple-100">
+                  <p className="text-[10px] font-bold text-purple-700 uppercase">Prod. Gratis</p>
+                  <p className="text-sm font-black text-slate-900 mt-1">
+                    ${team.estimated_free_product.toLocaleString('es-MX')}
+                  </p>
+                </div>
               </div>
             </div>
           ))}
