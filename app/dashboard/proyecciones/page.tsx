@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '@/lib/api'; // 👈 Asegúrate de ajustar esta ruta según donde tengas tu cliente de axios (ej. @/lib/api o @/services/api)
 
 interface TeamProgress {
   coordinator_id: number;
@@ -50,14 +50,13 @@ export default function ProyeccionesPage() {
 
   const fetchCampaignData = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/campaigns/active-projection/`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      // 💡 Usamos tu cliente 'api'. La ruta final será: baseURL + '/campaigns/active-projection/'
+      const response = await api.get('/campaigns/active-projection/');
       setData(response.data);
-    } catch (error) {
-      console.error('Error al cargar la proyección de campaña:', error);
+    } catch (error: any) {
+      if (error.response?.status !== 404) {
+        console.error('Error al cargar la proyección de campaña:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -66,12 +65,8 @@ export default function ProyeccionesPage() {
   const handleCreateCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/campaigns/active-projection/`,
-        form,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      // 💡 Petición POST limpia con tu cliente 'api'
+      await api.post('/campaigns/active-projection/', form);
       setShowModal(false);
       fetchCampaignData();
     } catch (error) {
@@ -89,11 +84,11 @@ export default function ProyeccionesPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto p-2">
-      {/* Encabezado con Botón de Ingresar Datos */}
+      {/* Encabezado */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <span className="inline-block px-3 py-1 rounded-full bg-fuchsia-100 text-fuchsia-700 text-[11px] font-bold uppercase tracking-wider mb-2">
-            Modulo de Proyección
+            Módulo de Proyección
           </span>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Proyección de Campaña</h1>
           <p className="text-xs text-slate-500 mt-1">
