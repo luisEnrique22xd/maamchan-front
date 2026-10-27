@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '@/lib/api';
 
 interface Category {
   id: number;
@@ -46,12 +46,9 @@ export default function InventarioPage() {
 
   const fetchInventory = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const headers = { Authorization: `Bearer ${token}` };
-
       const [prodRes, catRes] = await Promise.all([
-        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/sales/products/`, { headers }),
-        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/sales/categories/`, { headers }),
+        api.get('/sales/products/'),
+        api.get('/sales/categories/'),
       ]);
 
       const prodData = Array.isArray(prodRes.data) ? prodRes.data : prodRes.data.results;
@@ -93,12 +90,10 @@ export default function InventarioPage() {
     setIsModalOpen(true);
   };
 
+  // Única función correcta usando la instancia 'api'
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('access_token');
-      const headers = { Authorization: `Bearer ${token}` };
-
       const payload = {
         code: formData.code,
         name: formData.name,
@@ -110,23 +105,15 @@ export default function InventarioPage() {
       };
 
       if (editingProduct) {
-        await axios.patch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/sales/products/${editingProduct.id}/`,
-          payload,
-          { headers }
-        );
+        await api.patch(`/sales/products/${editingProduct.id}/`, payload);
       } else {
-        await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/sales/products/`,
-          payload,
-          { headers }
-        );
+        await api.post('/sales/products/', payload);
       }
 
       setIsModalOpen(false);
       fetchInventory();
-    } catch (error) {
-      console.error('Error al guardar el producto:', error);
+    } catch (error: any) {
+      console.error('Error al guardar el producto:', error.response?.data || error);
       alert('Ocurrió un error al guardar el producto. Revisa los campos.');
     }
   };
