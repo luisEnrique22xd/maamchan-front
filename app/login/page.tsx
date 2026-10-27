@@ -19,7 +19,7 @@ export default function LoginPage() {
     try {
       // Ajusta la URL '/token/' según el endpoint de autenticación en tus urls.py de Django
       // (ej. '/token/', '/users/login/' o '/auth/login/')
-      const response = await api.post('/auth/login/', {
+      const response = await api.post('/api/auth/login/', {
         email: email, // Si Django usa username por defecto en SimpleJWT
         password: password,
       });
