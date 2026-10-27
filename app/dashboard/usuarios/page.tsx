@@ -37,7 +37,7 @@ export default function UsuariasPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/api/users/'); 
+      const response = await api.get('/users/'); 
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
       setUsers(data);
     } catch (error) {
