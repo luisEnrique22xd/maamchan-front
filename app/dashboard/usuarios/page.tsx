@@ -37,7 +37,7 @@ export default function UsuariasPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/users/');
+      const response = await api.get('/'); 
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
       setUsers(data);
     } catch (error) {
@@ -46,7 +46,6 @@ export default function UsuariasPage() {
       setLoading(false);
     }
   };
-
   const filteredUsers = users.filter((user) => {
     const fullName = `${user.first_name || ''} ${user.last_name_paternal || ''} ${user.last_name_maternal || ''}`.toLowerCase();
     const matchesSearch =
