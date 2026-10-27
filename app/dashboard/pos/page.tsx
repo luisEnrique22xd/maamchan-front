@@ -51,7 +51,7 @@ export default function POSPage() {
   // 1. Cargar Productos desde la API
   const fetchProducts = async () => {
     try {
-      const response = await api.get<Product[]>('/products/');
+      const response = await api.get<Product[]>('/sales/products/');
       const data = Array.isArray(response.data) ? response.data : (response.data as any).results || [];
       setProducts(data);
       if (data.length > 0 && !selectedProductId) {
@@ -63,10 +63,6 @@ export default function POSPage() {
       setFetchingProducts(false);
     }
   };
-
-  useEffect(() => {
-    fetchProducts();
-  }, []);
 
   // Cargar historial de ventas recientes al abrir el modal
   const fetchRecentSales = async () => {

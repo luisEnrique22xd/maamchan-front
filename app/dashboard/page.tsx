@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import axios from 'axios';
+import api from '@/lib/api';
 
 interface Sale {
   id: number;
@@ -41,17 +41,15 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const headers = { Authorization: `Bearer ${token}` };
-
+        // Usamos tu instancia centralizada 'api' que ya incluye baseURL y Bearer token
         const [summaryRes, salesRes] = await Promise.all([
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/sales/dashboard-summary/`, { headers }),
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/sales/`, { headers }),
+          api.get<DashboardSummary>('/sales/dashboard-summary/'),
+          api.get<Sale[]>('/sales/'),
         ]);
 
         setSummary(summaryRes.data);
 
-        const salesData = Array.isArray(salesRes.data) ? salesRes.data : salesRes.data.results;
+        const salesData = Array.isArray(salesRes.data) ? salesRes.data : (salesRes.data as any).results;
         setTransactions(salesData || []);
       } catch (error) {
         console.error('Error al cargar datos del dashboard:', error);
