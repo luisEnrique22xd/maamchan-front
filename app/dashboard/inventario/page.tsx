@@ -83,7 +83,7 @@ export default function InventarioPage() {
       setFormData({
         code: '',
         name: '',
-        category: categories[0]?.id.toString() || '',
+        category: categories.length > 0 ? categories[0].id.toString() : '',
         public_price: '',
         seller_price: '',
         stock: '0',
@@ -296,17 +296,19 @@ export default function InventarioPage() {
               <div>
                 <label className="text-[11px] font-bold text-slate-500 uppercase">Categoría</label>
                 <select
+                  required
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   className="w-full mt-1 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs focus:outline-none focus:border-fuchsia-500"
                 >
+                  <option value="" disabled>Selecciona una categoría...</option>
                   {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
+                    <option key={cat.id} value={cat.id.toString()}>
                       {cat.name}
                     </option>
                   ))}
                 </select>
-              </div>
+              </div>W
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
