@@ -106,15 +106,33 @@ export default function InventarioPage() {
 
       if (editingProduct) {
         await api.patch(`/sales/products/${editingProduct.id}/`, payload);
+        alert('¡Producto actualizado exitosamente!');
       } else {
         await api.post('/sales/products/', payload);
+        alert('¡Producto registrado exitosamente!');
       }
 
       setIsModalOpen(false);
       fetchInventory();
     } catch (error: any) {
       console.error('Error al guardar el producto:', error.response?.data || error);
-      alert('Ocurrió un error al guardar el producto. Revisa los campos.');
+      
+      // Extraemos el mensaje de error específico que mande Django si existe
+      const errorData = error.response?.data;
+      let errorMsg = 'Ocurrió un error al guardar el producto. Revisa los campos.';
+      
+      if (errorData) {
+        if (typeof errorData === 'object') {
+          // Si Django regresa errores por campo (ej. código duplicado)
+          const firstKey = Object.keys(errorData)[0];
+          const firstError = errorData[firstKey];
+          errorMsg = `${firstKey.toUpperCase()}: ${Array.isArray(firstError) ? firstError[0] : firstError}`;
+        } else if (typeof errorData === 'string') {
+          errorMsg = errorData;
+        }
+      }
+
+      alert(errorMsg);
     }
   };
 
