@@ -31,6 +31,17 @@ interface DashboardSummary {
     team: string;
     sales: string;
   }[];
+  campaign?: {
+    name: string;
+    current_day: number;
+    total_days: number;
+    progress_percentage: number;
+    goal_orders: number;
+    current_orders: number;
+    new_clients_pct: number;
+    reactivations_pct: number;
+    resort_pct: number;
+  };
 }
 
 export default function DashboardPage() {
@@ -40,6 +51,15 @@ export default function DashboardPage() {
   
   // Estado para el Modo Privacidad (Oculto por defecto como pidió la administradora)
   const [showValues, setShowValues] = useState(false);
+
+  // Frases motivacionales dinámicas solicitadas
+  const motivationalQuotes = [
+    "¡Cada campaña es una nueva oportunidad para brillar y superar tus metas!",
+    "La persistencia y el trabajo diario en campo construyen el éxito de tu red.",
+    "¡Sigue adelante! Cada esfuerzo te acerca más al siguiente nivel de liderazgo.",
+    "Un paso a la vez: tus metas están más cerca de lo que imaginas."
+  ];
+  const [currentQuote] = useState(() => motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -106,6 +126,19 @@ export default function DashboardPage() {
     }
   };
 
+  // Valores simulados/respaldo por si el backend aún no manda el objeto campaign
+  const campaignData = summary?.campaign || {
+    name: 'Campaña Activa (21 Días)',
+    current_day: 14,
+    total_days: 21,
+    progress_percentage: 68,
+    goal_orders: 20,
+    current_orders: 14,
+    new_clients_pct: 50,
+    reactivations_pct: 30,
+    resort_pct: 20
+  };
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Banner Principal dinámico con Botón de Modo Privacidad */}
@@ -119,7 +152,7 @@ export default function DashboardPage() {
               ¡Bienvenida de nuevo, {summary?.user.first_name || 'Usuaria'}!
             </h1>
             <p className="text-pink-100 text-sm mt-1 max-w-md">
-              Aquí tienes el resumen comercial de tu red de vendedoras en tiempo real.
+              {currentQuote}
             </p>
           </div>
 
@@ -141,6 +174,86 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="absolute -right-10 -bottom-10 w-64 h-64 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+      </div>
+
+      {/* Sección de Campaña (21 Días), Progreso y Origen de Pedidos */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Barra de Progreso de Campaña */}
+        <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-pink-100 shadow-xl shadow-pink-500/5 flex flex-col justify-between">
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-fuchsia-600 bg-pink-50 px-3 py-1 rounded-full">
+                  {campaignData.name}
+                </span>
+                <h3 className="text-lg font-black text-slate-900 mt-2">Progreso hacia el Cierre</h3>
+              </div>
+              <span className="text-xs font-bold text-slate-500">
+                Día {campaignData.current_day} de {campaignData.total_days}
+              </span>
+            </div>
+
+            {/* Barra de Progreso Visual con colores dinámicos */}
+            <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden p-0.5">
+              <div 
+                className={`h-full rounded-full transition-all duration-500 ${
+                  campaignData.progress_percentage >= 100 
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500' 
+                    : campaignData.progress_percentage >= 50 
+                    ? 'bg-gradient-to-r from-fuchsia-600 to-pink-500' 
+                    : 'bg-gradient-to-r from-amber-500 to-rose-500'
+                }`} 
+                style={{ width: `${Math.min(campaignData.progress_percentage, 100)}%` }}
+              />
+            </div>
+            
+            <div className="flex justify-between items-center mt-3 text-xs font-bold text-slate-600">
+              <span>Pedidos actuales: <strong className="text-slate-900">{campaignData.current_orders}</strong> / Meta: {campaignData.goal_orders}</span>
+              <span className="text-fuchsia-600">{campaignData.progress_percentage}% Completado</span>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-slate-400 mt-4 border-t border-slate-100 pt-3">
+            💡 El último día de la campaña corresponde al cierre oficial de operaciones. ¡Sigue impulsando a tu equipo!
+          </p>
+        </div>
+
+        {/* Desglose de Origen de Pedidos (Nuevas, Reactivaciones, Resurtidos) */}
+        <div className="bg-white p-6 rounded-3xl border border-pink-100 shadow-xl shadow-pink-500/5 space-y-4">
+          <h3 className="font-bold text-slate-900 text-sm">Origen de Ventas (Campaña)</h3>
+          
+          <div className="space-y-3">
+            <div>
+              <div className="flex justify-between text-xs font-bold mb-1">
+                <span className="text-slate-600">Consultoras Nuevas</span>
+                <span className="text-fuchsia-600">{campaignData.new_clients_pct}%</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2">
+                <div className="bg-fuchsia-600 h-2 rounded-full" style={{ width: `${campaignData.new_clients_pct}%` }} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs font-bold mb-1">
+                <span className="text-slate-600">Reactivaciones</span>
+                <span className="text-pink-600">{campaignData.reactivations_pct}%</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2">
+                <div className="bg-pink-500 h-2 rounded-full" style={{ width: `${campaignData.reactivations_pct}%` }} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs font-bold mb-1">
+                <span className="text-slate-600">Resurtidos / Activas</span>
+                <span className="text-emerald-600">{campaignData.resort_pct}%</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2">
+                <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${campaignData.resort_pct}%` }} />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Grid de Tarjetas KPI */}
