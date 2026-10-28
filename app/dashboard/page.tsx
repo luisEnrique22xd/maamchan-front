@@ -37,11 +37,13 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [transactions, setTransactions] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Estado para el Modo Privacidad (Oculto por defecto como pidió la administradora)
+  const [showValues, setShowValues] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Usamos tu instancia centralizada 'api' que ya incluye baseURL y Bearer token
         const [summaryRes, salesRes] = await Promise.all([
           api.get<DashboardSummary>('/sales/dashboard-summary/'),
           api.get<Sale[]>('/sales/'),
@@ -106,7 +108,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Banner Principal dinámico */}
+      {/* Banner Principal dinámico con Botón de Modo Privacidad */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-fuchsia-600 via-pink-600 to-rose-500 p-8 text-white shadow-2xl shadow-fuchsia-500/20">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
@@ -120,12 +122,23 @@ export default function DashboardPage() {
               Aquí tienes el resumen comercial de tu red de vendedoras en tiempo real.
             </p>
           </div>
-          <Link
-            href="/dashboard/pos"
-            className="inline-flex items-center justify-center bg-white text-fuchsia-700 hover:bg-pink-50 font-bold px-6 py-3.5 rounded-2xl text-sm transition shadow-lg hover:scale-105 active:scale-95"
-          >
-            ⚡ Registrar Venta Rápida
-          </Link>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            {/* Botón de Alternar Privacidad (Ocultar/Mostrar Cifras) */}
+            <button
+              onClick={() => setShowValues(!showValues)}
+              className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/30 backdrop-blur-md font-bold px-4 py-3.5 rounded-2xl text-xs transition active:scale-95"
+            >
+              <span>{showValues ? '🙈 Ocultar Cifras' : '👁️ Mostrar Cifras'}</span>
+            </button>
+
+            <Link
+              href="/dashboard/pos"
+              className="inline-flex items-center justify-center bg-white text-fuchsia-700 hover:bg-pink-50 font-bold px-6 py-3.5 rounded-2xl text-sm transition shadow-lg hover:scale-105 active:scale-95"
+            >
+              ⚡ Registrar Venta Rápida
+            </Link>
+          </div>
         </div>
         <div className="absolute -right-10 -bottom-10 w-64 h-64 rounded-full bg-white/10 blur-3xl pointer-events-none" />
       </div>
@@ -144,7 +157,7 @@ export default function DashboardPage() {
                 Ver detalle ➔
               </span>
             </div>
-            <p className="text-3xl font-black text-slate-900 mt-2">
+            <p className={`text-3xl font-black text-slate-900 mt-2 transition-all duration-300 ${!showValues ? 'filter blur-md select-none text-slate-300' : ''}`}>
               {loading ? '...' : kpi.val}
             </p>
             <span className="inline-block text-[11px] font-bold text-fuchsia-600 bg-pink-50 px-3 py-1 rounded-full mt-3">
@@ -204,7 +217,7 @@ export default function DashboardPage() {
                           {row.sale_type || 'Contado'}
                         </span>
                       </td>
-                      <td className="p-4 font-black text-slate-900 text-sm">
+                      <td className={`p-4 font-black text-slate-900 text-sm transition-all duration-300 ${!showValues ? 'filter blur-sm select-none text-slate-300' : ''}`}>
                         ${Number(row.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="p-4">
@@ -240,7 +253,9 @@ export default function DashboardPage() {
                       <p className="text-[10px] text-slate-400 font-medium">Coord: {v.team}</p>
                     </div>
                   </div>
-                  <span className="font-black text-fuchsia-600 text-sm">{v.sales}</span>
+                  <span className={`font-black text-fuchsia-600 text-sm transition-all duration-300 ${!showValues ? 'filter blur-sm select-none text-slate-300' : ''}`}>
+                    {v.sales}
+                  </span>
                 </div>
               ))
             )}
