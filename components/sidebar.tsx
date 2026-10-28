@@ -133,7 +133,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               CR
             </div>
             <div className="overflow-hidden">
-            <p className="font-bold text-slate-900 text-xs truncate">{userName}</p>
+            <p className="font-bold text-slate-900 text-xs truncate text-white">{userName}</p>
           <p className="text-[10px] text-fuchsia-600 font-semibold truncate">{userRole || 'Administradora'}</p>
             </div>
           </div>
