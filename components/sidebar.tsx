@@ -2,6 +2,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import axios from 'axios';
+import { useEffect, useState } from 'react';
+import api from '@/lib/api';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -9,6 +11,8 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+  const [userName, setUserName] = useState('Cargando...');
+  const [userRole, setUserRole] = useState('');
   const pathname = usePathname();
 
   const navItems = [
@@ -44,6 +48,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       window.location.href = '/login';
     }
   };
+  useEffect(() => {
+    const fetchUserSidebar = async () => {
+      try {
+        // Reutilizamos el endpoint del dashboard para obtener los datos del usuario actual
+        const res = await api.get('/sales/dashboard-summary/');
+        if (res.data?.user) {
+          setUserName(res.data.user.first_name);
+          setUserRole(res.data.user.role_display);
+        }
+      } catch (error) {
+        console.error('Error al cargar el usuario en el sidebar:', error);
+        setUserName('Usuaria Chantal');
+      }
+    };
+
+    fetchUserSidebar();
+  }, []);
 
   return (
     <>
@@ -112,8 +133,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               CR
             </div>
             <div className="overflow-hidden">
-              <p className="text-xs font-bold text-neutral-200 truncate">Cynthia</p>
-              <p className="text-[10px] text-fuchsia-400 font-bold">Directora</p>
+            <p className="font-bold text-slate-900 text-xs truncate">{userName}</p>
+          <p className="text-[10px] text-fuchsia-600 font-semibold truncate">{userRole || 'Administradora'}</p>
             </div>
           </div>
 

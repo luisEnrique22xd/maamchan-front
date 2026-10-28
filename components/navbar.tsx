@@ -1,8 +1,29 @@
 'use client';
-import { useState } from 'react';
+import api from '@/lib/api';
+import { useEffect, useState } from 'react';
 
 export default function Navbar({ onToggleSidebar }: { onToggleSidebar?: () => void }) {
+  const [userName, setUserName] = useState('Cargando...');
+  const [userRole, setUserRole] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  useEffect(() => {
+    const fetchUserSidebar = async () => {
+      try {
+        // Reutilizamos el endpoint del dashboard para obtener los datos del usuario actual
+        const res = await api.get('/sales/dashboard-summary/');
+        if (res.data?.user) {
+          setUserName(res.data.user.first_name);
+          setUserRole(res.data.user.role_display);
+        }
+      } catch (error) {
+        console.error('Error al cargar el usuario en el sidebar:', error);
+        setUserName('Usuaria Chantal');
+      }
+    };
+
+    fetchUserSidebar();
+  }, []);
+
 
   return (
     <header className="h-20 bg-white/80 backdrop-blur-md border-b border-pink-100 px-6 flex items-center justify-between sticky top-0 z-20">
@@ -42,8 +63,8 @@ export default function Navbar({ onToggleSidebar }: { onToggleSidebar?: () => vo
             className="flex items-center gap-3 p-1.5 pl-2.5 rounded-2xl hover:bg-pink-50/50 border border-transparent hover:border-pink-100 transition"
           >
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-bold text-slate-900 leading-tight">Cynthia Revilla</p>
-              <p className="text-[10px] font-semibold text-fuchsia-600">Directora </p>
+              <p className="font-bold text-slate-900 text-xs truncate">{userName}</p>
+          <p className="text-[10px] text-fuchsia-600 font-semibold truncate">{userRole || 'Administradora'}</p>
             </div>
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-pink-500 text-white font-bold flex items-center justify-center text-xs shadow-md shadow-fuchsia-500/20">
               CR
