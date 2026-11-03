@@ -10,9 +10,10 @@ interface Category {
 
 interface Product {
   id: number;
-  sku: string;
+  code: string;
   name: string;
-  price_retail: string;
+  public_price: string;   
+  seller_price: string;  
   category: number;
   category_name: string;
   stock: number;
@@ -126,12 +127,12 @@ export default function POSPage() {
   // Filtrado de productos por categoría y búsqueda
   const filteredProducts = products.filter((p) => {
     const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.code.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
   const selectedProduct = products.find((p) => p.id === Number(selectedProductId));
-  const unitPrice = selectedProduct ? parseFloat(selectedProduct.price_retail) : 0;
+  const unitPrice = selectedProduct ? parseFloat(selectedProduct.public_price) : 0;
   const totalAmount = unitPrice * quantity;
 
   const effectivePayment =
@@ -385,7 +386,7 @@ export default function POSPage() {
             >
               <span className="truncate">
                 {selectedProduct
-                  ? `[${selectedProduct.sku}] ${selectedProduct.name} - $${selectedProduct.price_retail}`
+                  ? `[${selectedProduct.code}] ${selectedProduct.name} - $${selectedProduct.public_price}`
                   : 'Seleccionar fragancia del catálogo...'}
               </span>
               <span className="text-slate-400 text-xs">▼</span>
@@ -415,10 +416,10 @@ export default function POSPage() {
                       >
                         <div>
                           <p className="font-semibold">{p.name}</p>
-                          <p className="text-[10px] text-slate-400">SKU: {p.sku} • {p.category_name || 'General'}</p>
+                          <p className="text-[10px] text-slate-400">Código: {p.code} • {p.category_name || 'General'}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-fuchsia-600">${p.price_retail}</p>
+                          <p className="font-bold text-fuchsia-600">${p.public_price}</p>
                           <p className="text-[10px] text-slate-500">Stock: {p.stock}</p>
                         </div>
                       </div>
