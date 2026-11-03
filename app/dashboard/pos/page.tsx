@@ -88,7 +88,7 @@ export default function POSPage() {
   const fetchRecentSales = async () => {
     setFetchingSales(true);
     try {
-      const response = await api.get<Sale[]>('/sales/');
+      const response = await api.get<Sale[]>('/sales/sales/');
       const data = Array.isArray(response.data) ? response.data : (response.data as any).results || [];
       setRecentSales(data);
     } catch (err) {
@@ -186,7 +186,7 @@ export default function POSPage() {
         },
       };
 
-      const response = await api.post<Sale>('/sales/', payload);
+      const response = await api.post<Sale>('/sales/sales/', payload);
       setLastCreatedSale(response.data);
 
       setFeedback({
