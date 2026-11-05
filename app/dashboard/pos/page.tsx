@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
+import { downloadTicketPDF } from '@/lib/ticketPDF';
 
 interface Category {
   id: number;
@@ -215,73 +216,6 @@ export default function POSPage() {
     }
   };
 
-  // Generador de Ticket imprimible / PDF simulado
-  const handlePrintTicket = (sale: Sale) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Ticket de Venta #${sale.id} - Madame Chantal</title>
-          <style>
-            body { font-family: 'Courier New', Courier, monospace; font-size: 12px; width: 300px; margin: 0 auto; padding: 20px; color: #000; }
-            .center { text-align: center; }
-            .bold { font-weight: bold; }
-            .line { border-bottom: 1px dashed #000; margin: 10px 0; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { text-align: left; padding: 4px 0; }
-            .right { text-align: right; }
-          </style>
-        </head>
-        <body>
-          <div class="center">
-            <h2 style="margin:0;">MADAME CHANTAL</h2>
-            <p style="margin:2px 0;">Red de Distribución de Fragancias</p>
-            <p style="margin:2px 0; font-size: 10px;">Huamantla, Tlaxcala</p>
-          </div>
-          <div class="line"></div>
-          <p><strong>Folio Venta:</strong> #${sale.id}</p>
-          <p><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
-          <p><strong>Cliente:</strong> ${sale.customer_name || 'General'}</p>
-          <p><strong>Tipo:</strong> ${sale.sale_type}</p>
-          <div class="line"></div>
-          <table>
-            <thead>
-              <tr>
-                <th>Cant / Prod</th>
-                <th class="right">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${sale.items?.map(item => `
-                <tr>
-                  <td>${item.quantity}x ${item.product_name}</td>
-                  <td class="right">$${item.subtotal}</td>
-                </tr>
-              `).join('') || ''}
-            </tbody>
-          </table>
-          <div class="line"></div>
-          <div class="right">
-            <p style="margin:2px 0;"><strong>Total: $${sale.total_amount}</strong></p>
-            <p style="margin:2px 0;">Pagado: $${sale.paid_amount || '0.00'}</p>
-            <p style="margin:2px 0;">Saldo Pendiente: $${sale.balance_due || '0.00'}</p>
-          </div>
-          <div class="line"></div>
-          <div class="center" style="font-size: 10px; margin-top: 15px;">
-            <p>¡Gracias por su preferencia!</p>
-            <p>Conserve este comprobante para cualquier aclaración.</p>
-          </div>
-          <script>
-            window.onload = function() { window.print(); window.close(); }
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-  };
-
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Encabezado */}
@@ -308,10 +242,10 @@ export default function POSPage() {
             <div className="mt-3">
               <button
                 type="button"
-                onClick={() => handlePrintTicket(lastCreatedSale)}
+                onClick={() => downloadTicketPDF(lastCreatedSale)}
                 className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md transition"
               >
-                🖨️ Imprimir / Descargar Ticket PDF (Venta #{lastCreatedSale.id})
+                📥 Descargar Ticket PDF (Venta #{lastCreatedSale.id})
               </button>
             </div>
           )}
@@ -547,7 +481,7 @@ export default function POSPage() {
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div>
                 <h2 className="text-lg font-extrabold text-slate-900">Historial de Ventas Recientes</h2>
-                <p className="text-xs text-slate-500">Consulta operaciones y reimprime o cancela folios</p>
+                <p className="text-xs text-slate-500">Consulta operaciones y descarga o cancela folios</p>
               </div>
               <button
                 onClick={() => setIsHistoryOpen(false)}
@@ -585,10 +519,10 @@ export default function POSPage() {
                       
                       <button
                         type="button"
-                        onClick={() => handlePrintTicket(sale)}
+                        onClick={() => downloadTicketPDF(sale)}
                         className="bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1.5 rounded-xl text-xs font-bold transition"
                       >
-                        🖨️ Ticket
+                        📥 PDF
                       </button>
 
                       {sale.status !== 'CANCELADO' && (
