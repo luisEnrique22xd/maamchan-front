@@ -10,7 +10,7 @@ interface User {
   first_name: string;
   last_name_paternal: string;
   last_name_maternal?: string;
-  full_name: string;
+  full_name?: string;
   street: string;
   neighborhood: string;
   municipality: string;
@@ -21,6 +21,8 @@ interface User {
   rank: string;         // Brillante, Zafiro, Oro, Platino
   is_active: boolean;
   created_at: string;
+  expediente_status?: 'COMPLETO' | 'PENDIENTE';
+  total_receivable?: string; // Saldo por cobrar acumulado
 }
 
 export default function UsuariasPage() {
@@ -46,6 +48,7 @@ export default function UsuariasPage() {
       setLoading(false);
     }
   };
+
   const filteredUsers = users.filter((user) => {
     const fullName = `${user.first_name || ''} ${user.last_name_paternal || ''} ${user.last_name_maternal || ''}`.toLowerCase();
     const matchesSearch =
@@ -65,7 +68,7 @@ export default function UsuariasPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900">Red de Vendedoras</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Estructura jerárquica y administración de expedientes</p>
+          <p className="text-xs text-slate-500 mt-0.5">Estructura jerárquica, cartera de abonos y administración de expedientes</p>
         </div>
         <button
           onClick={() => router.push('/register')}
@@ -83,7 +86,7 @@ export default function UsuariasPage() {
           <span className="text-[10px] font-bold text-fuchsia-600 bg-pink-50 px-2.5 py-0.5 rounded-full mt-2 inline-block">Sincronizado</span>
         </div>
         <div className="bg-white p-5 rounded-3xl border border-pink-100 shadow-xl shadow-pink-500/5">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Coordinadoras</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Coordinadoras / Líderes</p>
           <p className="text-2xl font-black text-fuchsia-600 mt-1">
             {users.filter((u) => u.role_primary === 'COORDINADORA' || u.role_primary === 'GERENTE').length} Líderes
           </p>
@@ -184,7 +187,7 @@ export default function UsuariasPage() {
                       </span>
                     </td>
 
-                    {/* Nivel (Consultora/Coordinadora) y Rango (Brillante/Zafiro/Oro/Platino) */}
+                    {/* Nivel y Rango */}
                     <td className="p-4 space-y-1">
                       <div>
                         <span className="px-2.5 py-0.5 rounded-full bg-fuchsia-100 text-fuchsia-800 text-[10px] font-black uppercase">
@@ -221,12 +224,20 @@ export default function UsuariasPage() {
                     </td>
 
                     {/* Acciones */}
-                    <td className="p-4 text-right pr-6">
+                    <td className="p-4 text-right pr-6 space-x-2">
+                      <button
+                        onClick={() => router.push(`/dashboard/sales/user/${user.id}`)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-1.5 rounded-xl font-bold text-[11px] transition"
+                        title="Ver historial de abonos y cuentas por cobrar"
+                      >
+                        💵 Cartera
+                      </button>
+                      
                       <button
                         onClick={() => router.push(`/dashboard/expediente/${user.id}`)}
-                        className="text-fuchsia-600 hover:text-fuchsia-800 font-extrabold text-xs hover:underline"
+                        className="bg-fuchsia-50 hover:bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200 px-3 py-1.5 rounded-xl font-bold text-[11px] transition"
                       >
-                        Ver Expediente
+                        📁 Expediente
                       </button>
                     </td>
                   </tr>
