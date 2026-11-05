@@ -65,6 +65,14 @@ export default function POSPage() {
   const [fetchingSales, setFetchingSales] = useState<boolean>(false);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
 
+  // Estados para el Modal de Abonos Subsecuentes
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
+  const [activeSaleForPayment, setActiveSaleForPayment] = useState<Sale | null>(null);
+  const [abonoAmount, setAbonoAmount] = useState<string>('');
+  const [abonoMethod, setAbonoMethod] = useState<'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA'>('EFECTIVO');
+  const [abonoReference, setAbonoReference] = useState<string>('');
+  const [submittingAbono, setSubmittingAbono] = useState<boolean>(false);
+
   // Cargar Categorías y Productos
   useEffect(() => {
     const fetchData = async () => {
@@ -111,7 +119,7 @@ export default function POSPage() {
 
     setCancellingId(saleId);
     try {
-      await api.post(`/sales/${saleId}/cancel/`);
+      await api.post(`/sales/sales/${saleId}/cancel/`);
       setFeedback({
         type: 'success',
         message: `Venta #${saleId} cancelada exitosamente y stock reincorporado.`,
@@ -122,6 +130,52 @@ export default function POSPage() {
       alert(`Error: ${errorMsg}`);
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  // Registrar Abono Subsecuente
+  const handleOpenPaymentModal = (sale: Sale) => {
+    setActiveSaleForPayment(sale);
+    setAbonoAmount('');
+    setAbonoReference('');
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleSubmitAbono = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeSaleForPayment) return;
+
+    const amountNum = parseFloat(abonoAmount);
+    const balanceDueNum = parseFloat(activeSaleForPayment.balance_due || '0');
+
+    if (!amountNum || amountNum <= 0) {
+      alert('Ingresa un monto válido para el abono.');
+      return;
+    }
+
+    if (amountNum > balanceDueNum) {
+      alert(`El abono no puede ser mayor al saldo pendiente ($${balanceDueNum.toFixed(2)}).`);
+      return;
+    }
+
+    setSubmittingAbono(true);
+    try {
+      await api.post('/sales/payments/', {
+        sale: activeSaleForPayment.id,
+        amount: amountNum,
+        payment_method: abonoMethod,
+        reference: abonoReference.trim() || 'Abono Subsecuente POS'
+      });
+
+      alert(`¡Abono de $${amountNum.toFixed(2)} registrado exitosamente para la Venta #${activeSaleForPayment.id}!`);
+      setIsPaymentModalOpen(false);
+      setActiveSaleForPayment(null);
+      fetchRecentSales(); // Refrescar historial
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error || err.response?.data?.detail || 'No se pudo registrar el abono.';
+      alert(`Error: ${errorMsg}`);
+    } finally {
+      setSubmittingAbono(false);
     }
   };
 
@@ -481,7 +535,7 @@ export default function POSPage() {
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div>
                 <h2 className="text-lg font-extrabold text-slate-900">Historial de Ventas Recientes</h2>
-                <p className="text-xs text-slate-500">Consulta operaciones y descarga o cancela folios</p>
+                <p className="text-xs text-slate-500">Control de pagos, créditos, abonos y tickets</p>
               </div>
               <button
                 onClick={() => setIsHistoryOpen(false)}
@@ -498,44 +552,75 @@ export default function POSPage() {
                 <p className="text-center text-xs text-slate-400 py-8">No hay ventas registradas aún.</p>
               ) : (
                 recentSales.map((sale) => (
-                  <div key={sale.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-xs text-slate-900">Venta #{sale.id}</span>
-                        <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-fuchsia-100 text-fuchsia-800">
-                          {sale.sale_type}
-                        </span>
-                        {sale.status === 'CANCELADO' && (
-                          <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">
-                            Cancelada
+                  <div key={sale.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-xs text-slate-900">Venta #{sale.id}</span>
+                          <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-fuchsia-100 text-fuchsia-800">
+                            {sale.sale_type}
                           </span>
-                        )}
+                          {sale.status === 'PAGADO' ? (
+                            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">Liquidado</span>
+                          ) : sale.status === 'CANCELADO' ? (
+                            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">Cancelada</span>
+                          ) : (
+                            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">Pendiente</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-600">Cliente: {sale.customer_name || 'General'}</p>
                       </div>
-                      <p className="text-xs text-slate-600">Cliente: {sale.customer_name || 'General'}</p>
-                    </div>
 
-                    <div className="flex items-center gap-3">
-                      <span className="font-extrabold text-sm text-slate-900">${sale.total_amount}</span>
-                      
-                      <button
-                        type="button"
-                        onClick={() => downloadTicketPDF(sale)}
-                        className="bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1.5 rounded-xl text-xs font-bold transition"
-                      >
-                        📥 PDF
-                      </button>
-
-                      {sale.status !== 'CANCELADO' && (
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => handleCancelSale(sale.id)}
-                          disabled={cancellingId === sale.id}
-                          className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-1.5 rounded-xl text-xs font-bold transition disabled:opacity-50"
+                          onClick={() => downloadTicketPDF(sale)}
+                          className="bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1.5 rounded-xl text-xs font-bold transition"
+                          title="Descargar Ticket PDF"
                         >
-                          {cancellingId === sale.id ? 'Anulando...' : 'Cancelar'}
+                          📥 PDF
                         </button>
-                      )}
+
+                        {sale.status !== 'CANCELADO' && sale.status !== 'PAGADO' && sale.sale_type !== 'CONTADO' && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPaymentModal(sale)}
+                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-bold transition"
+                          >
+                            💵 Abonar
+                          </button>
+                        )}
+
+                        {sale.status !== 'CANCELADO' && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelSale(sale.id)}
+                            disabled={cancellingId === sale.id}
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-1.5 rounded-xl text-xs font-bold transition disabled:opacity-50"
+                          >
+                            {cancellingId === sale.id ? '...' : 'Cancelar'}
+                          </button>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Desglose de Progreso de Pago para Crédito / Anticipo */}
+                    {sale.sale_type !== 'CONTADO' && (
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 text-[11px]">
+                        <div>
+                          <span className="text-slate-400 block">Total:</span>
+                          <strong className="text-slate-800">${sale.total_amount}</strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Pagado:</span>
+                          <strong className="text-emerald-600">${sale.paid_amount || '0.00'}</strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Por Cobrar:</span>
+                          <strong className="text-rose-600">${sale.balance_due || '0.00'}</strong>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -549,6 +634,87 @@ export default function POSPage() {
                 Cerrar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Registrar Abono Subsecuente */}
+      {isPaymentModalOpen && activeSaleForPayment && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-100 p-6 space-y-5 animate-in fade-in zoom-in duration-150">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-extrabold text-slate-900">Registrar Abono</h3>
+                <p className="text-xs text-slate-500">Venta #{activeSaleForPayment.id} • {activeSaleForPayment.customer_name}</p>
+              </div>
+              <button
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold text-xs flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-fuchsia-50/60 p-4 rounded-2xl border border-fuchsia-100 flex justify-between text-xs font-bold text-fuchsia-900">
+              <span>Saldo Pendiente Actual:</span>
+              <span className="text-rose-600 text-sm">${activeSaleForPayment.balance_due}</span>
+            </div>
+
+            <form onSubmit={handleSubmitAbono} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">Monto del Abono ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  autoFocus
+                  placeholder="0.00"
+                  value={abonoAmount}
+                  onChange={(e) => setAbonoAmount(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-semibold text-slate-900 outline-none focus:border-fuchsia-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">Método de Pago</label>
+                <select
+                  value={abonoMethod}
+                  onChange={(e) => setAbonoMethod(e.target.value as any)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-semibold text-slate-900 outline-none focus:border-fuchsia-500"
+                >
+                  <option value="EFECTIVO">Efectivo</option>
+                  <option value="TRANSFERENCIA">Transferencia SPEI</option>
+                  <option value="TARJETA">Tarjeta Débito / Crédito</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">Referencia o Folio (Opcional)</label>
+                <input
+                  type="text"
+                  placeholder="Ej. Comprobante SPEI 1234"
+                  value={abonoReference}
+                  onChange={(e) => setAbonoReference(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-semibold text-slate-900 outline-none focus:border-fuchsia-500"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPaymentModalOpen(false)}
+                  className="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingAbono}
+                  className="w-1/2 bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:opacity-95 text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50"
+                >
+                  {submittingAbono ? 'Guardando...' : 'Aplicar Abono'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
