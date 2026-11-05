@@ -21,7 +21,8 @@ interface UserDetail {
   is_active: boolean;
   ine_document_url?: string;
   proof_of_address_url?: string;
-  credit_status?: 'APROBADO' | 'PENDIENTE' | 'RECHAZADO';
+  expediente_status?: 'COMPLETO' | 'PENDIENTE' | 'REVISIÓN';
+  consignment_limit?: string; // Límite de producto/consignación asignado
 }
 
 export default function ExpedientePage() {
@@ -35,7 +36,7 @@ export default function ExpedientePage() {
   const [uploading, setUploading] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Estados del formulario de edición
+  // Formulario con datos propios de la Vendedora
   const [formData, setFormData] = useState({
     first_name: '',
     last_name_paternal: '',
@@ -46,7 +47,8 @@ export default function ExpedientePage() {
     municipality: '',
     state: '',
     rank: 'BRILLANTE',
-    credit_status: 'PENDIENTE',
+    role_primary: 'VENDEDORA',
+    consignment_limit: '0.00',
     is_active: true,
   });
 
@@ -72,7 +74,8 @@ export default function ExpedientePage() {
         municipality: data.municipality || '',
         state: data.state || '',
         rank: data.rank || 'BRILLANTE',
-        credit_status: data.credit_status || 'PENDIENTE',
+        role_primary: data.role_primary || 'VENDEDORA',
+        consignment_limit: data.consignment_limit || '0.00',
         is_active: data.is_active ?? true,
       });
     } catch (err) {
@@ -120,13 +123,8 @@ export default function ExpedientePage() {
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-20 text-xs text-slate-400 font-bold">Cargando expediente digital...</div>;
-  }
-
-  if (!user) {
-    return <div className="text-center py-20 text-xs text-rose-500 font-bold">No se encontró a la consultora.</div>;
-  }
+  if (loading) return <div className="text-center py-20 text-xs text-slate-400 font-bold">Cargando expediente digital...</div>;
+  if (!user) return <div className="text-center py-20 text-xs text-rose-500 font-bold">No se encontró a la consultora.</div>;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 py-6">
@@ -140,16 +138,15 @@ export default function ExpedientePage() {
             ← Volver a la Red
           </button>
           <h1 className="text-2xl font-black text-slate-900">
-            Expediente de {user.first_name} {user.last_name_paternal}
+            Expediente de Consultora: {user.first_name} {user.last_name_paternal}
           </h1>
           <p className="text-xs text-slate-500">ID Nexen: <strong className="text-slate-800">{user.nexen_user || 'N/A'}</strong> | Correo: {user.email}</p>
         </div>
 
         <span className={`px-4 py-1.5 rounded-2xl text-xs font-black uppercase shadow-sm ${
-          user.credit_status === 'APROBADO' ? 'bg-emerald-100 text-emerald-800' :
-          user.credit_status === 'RECHAZADO' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+          user.expediente_status === 'COMPLETO' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
         }`}>
-          Crédito: {user.credit_status || 'PENDIENTE'}
+          Expediente: {user.expediente_status || 'PENDIENTE'}
         </span>
       </div>
 
@@ -161,11 +158,11 @@ export default function ExpedientePage() {
         </div>
       )}
 
-      {/* SECCIÓN 1: Formulario de Datos Generales y Edición */}
+      {/* SECCIÓN 1: Formulario de Datos Generales y Asignación de Red */}
       <div className="bg-white p-8 rounded-3xl border border-pink-100 shadow-xl shadow-pink-500/5 space-y-6">
         <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
-          <h3 className="font-extrabold text-slate-900 text-sm">👤 Información General y Dirección</h3>
-          <span className="text-[10px] text-slate-400">Modifica los campos necesarios y guarda los cambios</span>
+          <h3 className="font-extrabold text-slate-900 text-sm">👤 Perfil Comercial y Dirección</h3>
+          <span className="text-[10px] text-slate-400">Edita la información de la consultora</span>
         </div>
 
         <form onSubmit={handleUpdateProfile} className="space-y-5">
@@ -199,7 +196,7 @@ export default function ExpedientePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Teléfono / Celular</label>
               <input
@@ -208,6 +205,18 @@ export default function ExpedientePage() {
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 font-medium focus:border-fuchsia-400 outline-none"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Rol en la Red</label>
+              <select
+                value={formData.role_primary}
+                onChange={(e) => setFormData({ ...formData, role_primary: e.target.value })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 font-medium focus:border-fuchsia-400 outline-none cursor-pointer"
+              >
+                <option value="VENDEDORA">Consultora / Vendedora</option>
+                <option value="COORDINADORA">Coordinadora de Equipo</option>
+                <option value="DIRECTORA">Directora</option>
+              </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Rango Comercial</label>
@@ -223,16 +232,15 @@ export default function ExpedientePage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Estatus de Crédito</label>
-              <select
-                value={formData.credit_status}
-                onChange={(e) => setFormData({ ...formData, credit_status: e.target.value as any })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 font-medium focus:border-fuchsia-400 outline-none cursor-pointer"
-              >
-                <option value="PENDIENTE">Pendiente</option>
-                <option value="APROBADO">Aprobado</option>
-                <option value="RECHAZADO">Rechazado</option>
-              </select>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Límite de Consignación ($)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.consignment_limit}
+                onChange={(e) => setFormData({ ...formData, consignment_limit: e.target.value })}
+                placeholder="0.00"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 font-medium focus:border-fuchsia-400 outline-none"
+              />
             </div>
           </div>
 
@@ -256,7 +264,7 @@ export default function ExpedientePage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Municipio</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Municipio / Estado</label>
               <input
                 type="text"
                 value={formData.municipality}
@@ -272,7 +280,7 @@ export default function ExpedientePage() {
               disabled={saving}
               className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-6 py-3 rounded-2xl text-xs transition shadow-md disabled:opacity-50"
             >
-              {saving ? 'Guardando cambios...' : '💾 Guardar Datos Generales'}
+              {saving ? 'Guardando cambios...' : '💾 Guardar Datos del Perfil'}
             </button>
           </div>
         </form>
@@ -281,8 +289,8 @@ export default function ExpedientePage() {
       {/* SECCIÓN 2: Bóveda de Documentación Oficial */}
       <div className="bg-white p-8 rounded-3xl border border-pink-100 shadow-xl shadow-pink-500/5 space-y-6">
         <div className="border-b border-slate-100 pb-3">
-          <h3 className="font-extrabold text-slate-900 text-sm">📁 Bóveda de Documentación Oficial (Supabase)</h3>
-          <p className="text-xs text-slate-500">Carga o actualiza las identificaciones para validar el perfil</p>
+          <h3 className="font-extrabold text-slate-900 text-sm">📁 Bóveda de Identificación de la Consultora</h3>
+          <p className="text-xs text-slate-500">Documentación para validar la asignación de consignación y pedidos</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
