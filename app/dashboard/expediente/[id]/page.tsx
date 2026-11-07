@@ -101,26 +101,28 @@ export default function ExpedientePage() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, docType: 'ine' | 'address') => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, docType: 'ine' | 'address') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('doc_type', docType);
+    setUploading(true);
+    const dataForm = new FormData();
+    dataForm.append('file', file);
+    dataForm.append('doc_type', docType);
 
-  try {
-    // Petición a tu backend en Django (Railway)
-    const response = await api.post(`/users/${userId}/upload-document/`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-    
-    alert('¡Documento guardado de forma segura en Supabase!');
-    // Recargar datos del expediente
-  } catch (err) {
-    alert('Error al subir el archivo.');
-  }
-};
+    try {
+      // ELIMINAMOS los headers manuales para que Axios genere el multipart con su boundary correcto
+      const response = await api.post(`/users/${userId}/upload-document/`, dataForm);
+      
+      alert('¡Documento guardado de forma segura en Supabase!');
+      fetchUserExpediente(); // Recargar datos para mostrar el nuevo enlace
+    } catch (err: any) {
+      console.error('Error al subir:', err.response?.data || err);
+      alert('Error al subir el archivo: ' + (err.response?.data?.error || 'Error desconocido'));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   if (loading) return <div className="text-center py-20 text-xs text-slate-400 font-bold">Cargando expediente digital...</div>;
   if (!user) return <div className="text-center py-20 text-xs text-rose-500 font-bold">No se encontró a la consultora.</div>;
