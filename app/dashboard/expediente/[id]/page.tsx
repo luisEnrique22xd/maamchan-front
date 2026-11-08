@@ -111,8 +111,12 @@ export default function ExpedientePage() {
     dataForm.append('doc_type', docType);
 
     try {
-      // ELIMINAMOS los headers manuales para que Axios genere el multipart con su boundary correcto
-      const response = await api.post(`/users/${userId}/upload-document/`, dataForm);
+      // Pasamos 'Content-Type': undefined para que Axios no fuerce JSON y deje actuar al FormData
+      const response = await api.post(`/users/${userId}/upload-document/`, dataForm, {
+        headers: {
+          'Content-Type': undefined,
+        },
+      });
       
       alert('¡Documento guardado de forma segura en Supabase!');
       fetchUserExpediente(); // Recargar datos para mostrar el nuevo enlace
