@@ -18,9 +18,11 @@ interface Product {
   stock: number;
   min_stock: number;
   is_low_stock: boolean;
+  inventory_type: 'INTERNO' | 'CEDIS';
 }
 
 export default function InventarioPage() {
+  const [activeTab, setActiveTab] = useState<'INTERNO' | 'CEDIS'>('INTERNO');
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,16 +40,18 @@ export default function InventarioPage() {
     seller_price: '',
     stock: '',
     min_stock: '5',
+    inventory_type: 'INTERNO' as 'INTERNO' | 'CEDIS',
   });
 
   useEffect(() => {
     fetchInventory();
-  }, []);
+  }, [activeTab]);
 
   const fetchInventory = async () => {
     try {
+      setLoading(true);
       const [prodRes, catRes] = await Promise.all([
-        api.get('/sales/products/'),
+        api.get(`/sales/products/?inventory_type=${activeTab}`),
         api.get('/sales/categories/'),
       ]);
 
@@ -74,6 +78,7 @@ export default function InventarioPage() {
         seller_price: product.seller_price,
         stock: product.stock.toString(),
         min_stock: product.min_stock.toString(),
+        inventory_type: product.inventory_type || activeTab,
       });
     } else {
       setEditingProduct(null);
@@ -85,12 +90,12 @@ export default function InventarioPage() {
         seller_price: '',
         stock: '0',
         min_stock: '5',
+        inventory_type: activeTab,
       });
     }
     setIsModalOpen(true);
   };
 
-  // Única función correcta usando la instancia 'api'
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -102,6 +107,7 @@ export default function InventarioPage() {
         seller_price: parseFloat(formData.seller_price),
         stock: parseInt(formData.stock),
         min_stock: parseInt(formData.min_stock),
+        inventory_type: formData.inventory_type,
       };
 
       if (editingProduct) {
@@ -117,13 +123,11 @@ export default function InventarioPage() {
     } catch (error: any) {
       console.error('Error al guardar el producto:', error.response?.data || error);
       
-      // Extraemos el mensaje de error específico que mande Django si existe
       const errorData = error.response?.data;
       let errorMsg = 'Ocurrió un error al guardar el producto. Revisa los campos.';
       
       if (errorData) {
         if (typeof errorData === 'object') {
-          // Si Django regresa errores por campo (ej. código duplicado)
           const firstKey = Object.keys(errorData)[0];
           const firstError = errorData[firstKey];
           errorMsg = `${firstKey.toUpperCase()}: ${Array.isArray(firstError) ? firstError[0] : firstError}`;
@@ -147,20 +151,50 @@ export default function InventarioPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Encabezado */}
+      {/* Encabezado y Pestañas de Inventarios */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Catálogo e Inventario</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Gestión de productos, existencias y precios del almacén Tlaxcala.
+            Gestión de productos, existencias y precios ({activeTab === 'INTERNO' ? 'Inventario Interno' : 'Centro de Distribución - CEDIS'}).
           </p>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          className="inline-flex items-center justify-center bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white font-bold px-5 py-3 rounded-2xl text-xs shadow-lg shadow-fuchsia-900/20 hover:scale-105 active:scale-95 transition"
-        >
-          + Agregar Nuevo Producto
-        </button>
+
+        <div className="flex items-center gap-3">
+          {/* Pestañas de Navegación de Inventario */}
+          <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveTab('INTERNO')}
+              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
+                activeTab === 'INTERNO'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              🏠 Interno
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('CEDIS')}
+              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
+                activeTab === 'CEDIS'
+                  ? 'bg-fuchsia-600 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              🏭 CEDIS
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleOpenModal()}
+            className="inline-flex items-center justify-center bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white font-bold px-5 py-3 rounded-2xl text-xs shadow-lg shadow-fuchsia-900/20 hover:scale-105 active:scale-95 transition"
+          >
+            + Agregar Producto
+          </button>
+        </div>
       </div>
 
       {/* Barra de Filtros */}
@@ -197,11 +231,11 @@ export default function InventarioPage() {
         <div className="overflow-x-auto">
           {loading ? (
             <div className="p-8 text-center text-xs text-slate-400 font-medium">
-              Cargando catálogo de productos...
+              Cargando catálogo de {activeTab}...
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-400 font-medium">
-              No se encontraron productos registrados.
+              No se encontraron productos registrados en este inventario.
             </div>
           ) : (
             <table className="w-full text-left text-xs">
@@ -251,6 +285,7 @@ export default function InventarioPage() {
                     </td>
                     <td className="p-4 text-right pr-6">
                       <button
+                        type="button"
                         onClick={() => handleOpenModal(p)}
                         className="text-fuchsia-600 font-bold hover:underline"
                       >
@@ -274,6 +309,18 @@ export default function InventarioPage() {
             </h3>
 
             <form onSubmit={handleSaveProduct} className="space-y-4">
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Almacén / Inventario</label>
+                <select
+                  value={formData.inventory_type}
+                  onChange={(e) => setFormData({ ...formData, inventory_type: e.target.value as 'INTERNO' | 'CEDIS' })}
+                  className="w-full mt-1 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-fuchsia-500"
+                >
+                  <option value="INTERNO">🏠 Inventario Interno</option>
+                  <option value="CEDIS">🏭 Centro de Distribución (CEDIS)</option>
+                </select>
+              </div>
+
               <div>
                 <label className="text-[11px] font-bold text-slate-500 uppercase">Código / SKU</label>
                 <input
