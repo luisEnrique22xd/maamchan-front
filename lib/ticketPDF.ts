@@ -4,6 +4,7 @@ import html2canvas from 'html2canvas';
 interface SaleItem {
   product_name: string;
   quantity: number;
+  unit_price?: string;
   subtotal: string;
 }
 
