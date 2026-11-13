@@ -209,24 +209,42 @@ export default function POSPage() {
   };
 
   // Cambio de lista de precios (recalcula los precios de los productos ya agregados al carrito)
+  // Cambio de lista de precios (aplica o quita el 30% a los productos ya agregados)
   const handlePriceTierSwitch = (tier: 'PUBLIC' | 'SELLER') => {
     setPriceTier(tier);
     setCart((prev) =>
-      prev.map((item) => ({
-        ...item,
-        unit_price: tier === 'PUBLIC' ? parseFloat(item.product.public_price) : parseFloat(item.product.seller_price),
-      }))
+      prev.map((item) => {
+        let basePrice = tier === 'PUBLIC' 
+          ? parseFloat(item.product.public_price) 
+          : parseFloat(item.product.seller_price);
+
+        if (tier === 'SELLER') {
+          basePrice = basePrice * 0.70; // Aplica el 30% de descuento
+        }
+
+        return {
+          ...item,
+          unit_price: basePrice,
+        };
+      })
     );
   };
 
-  // Agregar producto al carrito
+  // Agregar producto al carrito (con 30% de descuento si es Precio Vendedora)
   const handleAddToCart = (product: Product) => {
     if (product.stock <= 0) {
       alert(`"${product.name}" está agotado en ${posInventoryType}.`);
       return;
     }
 
-    const price = priceTier === 'PUBLIC' ? parseFloat(product.public_price) : parseFloat(product.seller_price);
+    let price = priceTier === 'PUBLIC' 
+      ? parseFloat(product.public_price) 
+      : parseFloat(product.seller_price);
+
+    // Si la tarifa activa es VENDEDORA, aplicamos el 30% de descuento (multiplicando por 0.70)
+    if (priceTier === 'SELLER') {
+      price = price * 0.70;
+    }
 
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
