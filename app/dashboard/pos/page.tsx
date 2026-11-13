@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import api from '@/lib/api';
+import api from '@/lib/api'
 import { downloadTicketPDF } from '@/lib/ticketPDF';
 
 interface Category {
@@ -14,10 +14,11 @@ interface Product {
   code: string;
   name: string;
   public_price: string;   
-  seller_price: string;  
+  seller_price: string;   
   category: number;
   category_name: string;
   stock: number;
+  inventory_type: 'INTERNO' | 'CEDIS'; // <--- Nuevo campo para separar almacén
 }
 
 interface Sale {
@@ -38,6 +39,7 @@ interface Sale {
 }
 
 export default function POSPage() {
+  const [posInventoryType, setPosInventoryType] = useState<'INTERNO' | 'CEDIS'>('INTERNO'); // <--- Pestaña activa (Interno / CEDIS)
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | 'ALL'>('ALL');
@@ -170,7 +172,7 @@ export default function POSPage() {
       alert(`¡Abono de $${amountNum.toFixed(2)} registrado exitosamente para la Venta #${activeSaleForPayment.id}!`);
       setIsPaymentModalOpen(false);
       setActiveSaleForPayment(null);
-      fetchRecentSales(); // Refrescar historial
+      fetchRecentSales();
     } catch (err: any) {
       const errorMsg = err.response?.data?.error || err.response?.data?.detail || 'No se pudo registrar el abono.';
       alert(`Error: ${errorMsg}`);
@@ -179,11 +181,12 @@ export default function POSPage() {
     }
   };
 
-  // Filtrado de productos por categoría y búsqueda
+  // 1. Filtrar productos por el inventario activo (Interno o CEDIS), categoría y búsqueda
   const filteredProducts = products.filter((p) => {
+    const matchesInventory = (p.inventory_type || 'INTERNO') === posInventoryType;
     const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.code.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+    return matchesInventory && matchesCategory && matchesSearch;
   });
 
   const selectedProduct = products.find((p) => p.id === Number(selectedProductId));
@@ -201,6 +204,13 @@ export default function POSPage() {
     setSelectedProductId(product.id);
     setSearchQuery('');
     setIsDropdownOpen(false);
+  };
+
+  // Cambio de almacén (Limpia el producto seleccionado para evitar mezclar almacenes)
+  const handleInventorySwitch = (type: 'INTERNO' | 'CEDIS') => {
+    setPosInventoryType(type);
+    setSelectedProductId('');
+    setSearchQuery('');
   };
 
   // Procesar Venta
@@ -246,7 +256,7 @@ export default function POSPage() {
 
       setFeedback({
         type: 'success',
-        message: `¡Venta #${response.data.id} registrada exitosamente!`,
+        message: `¡Venta #${response.data.id} registrada exitosamente desde ${posInventoryType}!`,
       });
 
       // Limpiar formulario
@@ -272,19 +282,46 @@ export default function POSPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Encabezado */}
-      <div className="flex justify-between items-center">
+      {/* Encabezado y Selector de Inventario */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900">Punto de Venta (POS)</h1>
-          <p className="text-xs text-slate-500">Selección de aromas y control de transacciones en tiempo real</p>
+          <p className="text-xs text-slate-500">
+            Surtido actual desde: <strong className="text-fuchsia-600">{posInventoryType === 'INTERNO' ? 'Inventario Interno' : 'Centro de Distribución (CEDIS)'}</strong>
+          </p>
         </div>
         
-        <button
-          onClick={handleOpenModal}
-          className="bg-white hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-2 border border-slate-200 shadow-sm"
-        >
-          <span>📋</span> Historial y Cancelaciones
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Pestañas para cambiar entre Interno y CEDIS */}
+          <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => handleInventorySwitch('INTERNO')}
+              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
+                posInventoryType === 'INTERNO' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              🏠 Interno
+            </button>
+            <button
+              type="button"
+              onClick={() => handleInventorySwitch('CEDIS')}
+              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
+                posInventoryType === 'CEDIS' ? 'bg-fuchsia-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              🏭 CEDIS
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleOpenModal}
+            className="bg-white hover:bg-slate-50 text-slate-700 px-4 py-3 rounded-2xl text-xs font-bold transition flex items-center gap-2 border border-slate-200 shadow-sm"
+          >
+            <span>📋</span> Historial
+          </button>
+        </div>
       </div>
 
       {feedback && (
@@ -354,7 +391,7 @@ export default function POSPage() {
                 onChange={(e) => setSelectedCategory(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-slate-900 focus:border-fuchsia-400 outline-none transition"
               >
-                <option value="ALL">Todas las Categorías ({products.length} SKUs)</option>
+                <option value="ALL">Todas las Categorías ({filteredProducts.length} en {posInventoryType})</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
@@ -365,7 +402,7 @@ export default function POSPage() {
           {/* Buscador de Fragancias / Productos */}
           <div className="relative">
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Seleccionar Perfume / Producto ({fetchingData ? 'Cargando...' : `${filteredProducts.length} disponibles`})
+              Seleccionar Perfume / Producto ({fetchingData ? 'Cargando...' : `${filteredProducts.length} disponibles en ${posInventoryType}`})
             </label>
             
             <div
@@ -375,7 +412,7 @@ export default function POSPage() {
               <span className="truncate">
                 {selectedProduct
                   ? `[${selectedProduct.code}] ${selectedProduct.name} - $${selectedProduct.public_price}`
-                  : 'Seleccionar fragancia del catálogo...'}
+                  : `Seleccionar fragancia del ${posInventoryType}...`}
               </span>
               <span className="text-slate-400 text-xs">▼</span>
             </div>
@@ -385,14 +422,14 @@ export default function POSPage() {
                 <input
                   type="text"
                   autoFocus
-                  placeholder="Buscar por nombre o SKU de fragancia..."
+                  placeholder={`Buscar en ${posInventoryType} por nombre o SKU...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
                 />
                 <div className="max-h-56 overflow-y-auto space-y-1">
                   {filteredProducts.length === 0 ? (
-                    <div className="p-3 text-xs text-slate-400 text-center">No se encontraron fragancias</div>
+                    <div className="p-3 text-xs text-slate-400 text-center">No se encontraron fragancias en {posInventoryType}</div>
                   ) : (
                     filteredProducts.map((p) => (
                       <div
@@ -404,7 +441,7 @@ export default function POSPage() {
                       >
                         <div>
                           <p className="font-semibold">{p.name}</p>
-                          <p className="text-[10px] text-slate-400">Código: {p.code} • {p.category_name || 'General'}</p>
+                          <p className="text-[10px] text-slate-400">Código: {p.code} | {p.category_name || 'General'}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-fuchsia-600">${p.public_price}</p>
@@ -479,13 +516,16 @@ export default function POSPage() {
             disabled={loading || fetchingData || !selectedProductId}
             className="w-full bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:opacity-95 disabled:opacity-50 text-white font-extrabold py-4 rounded-2xl text-xs tracking-wide transition shadow-xl shadow-fuchsia-500/20 hover:scale-[1.01]"
           >
-            {loading ? 'PROCESANDO VENTA...' : '⚡ PROCESAR Y GENERAR TICKET'}
+            {loading ? 'PROCESANDO VENTA...' : `⚡ PROCESAR VENTA (${posInventoryType})`}
           </button>
         </div>
 
         {/* Panel Resumen de Operación */}
         <div className="bg-white p-6 rounded-3xl border border-pink-100 shadow-xl shadow-pink-500/5 space-y-4 h-fit">
-          <h3 className="font-bold text-slate-900 border-b border-slate-100 pb-3">Resumen de Operación</h3>
+          <h3 className="font-bold text-slate-900 border-b border-slate-100 pb-3 flex justify-between items-center">
+            <span>Resumen POS</span>
+            <span className="text-[10px] bg-fuchsia-100 text-fuchsia-800 px-2 py-0.5 rounded-md font-black">{posInventoryType}</span>
+          </h3>
           <div className="space-y-3 text-xs">
             <div className="flex justify-between text-slate-500">
               <span>Cliente:</span>
@@ -645,7 +685,7 @@ export default function POSPage() {
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-extrabold text-slate-900">Registrar Abono</h3>
-                <p className="text-xs text-slate-500">Venta #{activeSaleForPayment.id} • {activeSaleForPayment.customer_name}</p>
+                <p className="text-xs text-slate-500">Venta #{activeSaleForPayment.id} | {activeSaleForPayment.customer_name}</p>
               </div>
               <button
                 onClick={() => setIsPaymentModalOpen(false)}
