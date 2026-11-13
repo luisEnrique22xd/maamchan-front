@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import api from '@/lib/api'
+import api from '@/lib/api';
 import { downloadTicketPDF } from '@/lib/ticketPDF';
 
 interface Category {
@@ -13,12 +13,18 @@ interface Product {
   id: number;
   code: string;
   name: string;
-  public_price: string;   
-  seller_price: string;   
+  public_price: string;
+  seller_price: string;
   category: number;
   category_name: string;
   stock: number;
-  inventory_type: 'INTERNO' | 'CEDIS'; // <--- Nuevo campo para separar almacén
+  inventory_type: 'INTERNO' | 'CEDIS';
+}
+
+interface CartItem {
+  product: Product;
+  quantity: number;
+  unit_price: number;
 }
 
 interface Sale {
@@ -39,18 +45,19 @@ interface Sale {
 }
 
 export default function POSPage() {
-  const [posInventoryType, setPosInventoryType] = useState<'INTERNO' | 'CEDIS'>('INTERNO'); // <--- Pestaña activa (Interno / CEDIS)
+  const [posInventoryType, setPosInventoryType] = useState<'INTERNO' | 'CEDIS'>('INTERNO');
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | 'ALL'>('ALL');
-  
-  // Estados del formulario de Venta
-  const [saleType, setSaleType] = useState<'CONTADO' | 'CREDITO' | 'ANTICIPO'>('CONTADO');
-  const [selectedProductId, setSelectedProductId] = useState<number | ''>('');
+
+  // Estados del Carrito y Selección
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [priceTier, setPriceTier] = useState<'PUBLIC' | 'SELLER'>('PUBLIC');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
 
-  const [quantity, setQuantity] = useState<number>(1);
+  // Estados del formulario de Venta
+  const [saleType, setSaleType] = useState<'CONTADO' | 'CREDITO' | 'ANTICIPO'>('CONTADO');
   const [customerName, setCustomerName] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA'>('EFECTIVO');
   const [initialPayment, setInitialPayment] = useState<string>('');
@@ -84,7 +91,7 @@ export default function POSPage() {
           api.get<Product[]>('/sales/products/'),
         ]);
         setCategories(Array.isArray(catRes.data) ? catRes.data : (catRes.data as any).results || []);
-        
+
         const prodData = Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data as any).results || [];
         setProducts(prodData);
       } catch (err) {
@@ -166,7 +173,7 @@ export default function POSPage() {
         sale: activeSaleForPayment.id,
         amount: amountNum,
         payment_method: abonoMethod,
-        reference: abonoReference.trim() || 'Abono Subsecuente POS'
+        reference: abonoReference.trim() || 'Abono Subsecuente POS',
       });
 
       alert(`¡Abono de $${amountNum.toFixed(2)} registrado exitosamente para la Venta #${activeSaleForPayment.id}!`);
@@ -181,17 +188,90 @@ export default function POSPage() {
     }
   };
 
-  // 1. Filtrar productos por el inventario activo (Interno o CEDIS), categoría y búsqueda
+  // Filtrar productos por almacén activo, categoría y búsqueda
   const filteredProducts = products.filter((p) => {
     const matchesInventory = (p.inventory_type || 'INTERNO') === posInventoryType;
     const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.code.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.code.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesInventory && matchesCategory && matchesSearch;
   });
 
-  const selectedProduct = products.find((p) => p.id === Number(selectedProductId));
-  const unitPrice = selectedProduct ? parseFloat(selectedProduct.public_price) : 0;
-  const totalAmount = unitPrice * quantity;
+  // Cambio de almacén (limpia carrito para no mezclar almacenes en un mismo ticket)
+  const handleInventorySwitch = (type: 'INTERNO' | 'CEDIS') => {
+    if (cart.length > 0 && type !== posInventoryType) {
+      if (!confirm('Al cambiar de almacén se vaciará el carrito actual. ¿Continuar?')) return;
+    }
+    setPosInventoryType(type);
+    setCart([]);
+    setSearchQuery('');
+  };
+
+  // Cambio de lista de precios (recalcula los precios de los productos ya agregados al carrito)
+  const handlePriceTierSwitch = (tier: 'PUBLIC' | 'SELLER') => {
+    setPriceTier(tier);
+    setCart((prev) =>
+      prev.map((item) => ({
+        ...item,
+        unit_price: tier === 'PUBLIC' ? parseFloat(item.product.public_price) : parseFloat(item.product.seller_price),
+      }))
+    );
+  };
+
+  // Agregar producto al carrito
+  const handleAddToCart = (product: Product) => {
+    if (product.stock <= 0) {
+      alert(`"${product.name}" está agotado en ${posInventoryType}.`);
+      return;
+    }
+
+    const price = priceTier === 'PUBLIC' ? parseFloat(product.public_price) : parseFloat(product.seller_price);
+
+    setCart((prev) => {
+      const existing = prev.find((item) => item.product.id === product.id);
+      if (existing) {
+        if (existing.quantity + 1 > product.stock) {
+          alert(`Stock máximo alcanzado (${product.stock} uds. disponibles).`);
+          return prev;
+        }
+        return prev.map((item) =>
+          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      }
+      return [...prev, { product, quantity: 1, unit_price: price }];
+    });
+
+    setSearchQuery('');
+    setIsDropdownOpen(false);
+  };
+
+  // Modificar cantidad o quitar del carrito
+  const handleUpdateCartQty = (productId: number, newQty: number) => {
+    if (newQty <= 0) {
+      setCart((prev) => prev.filter((item) => item.product.id !== productId));
+      return;
+    }
+
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.product.id !== productId) return item;
+        if (newQty > item.product.stock) {
+          alert(`Solo hay ${item.product.stock} unidades disponibles.`);
+          return item;
+        }
+        return { ...item, quantity: newQty };
+      })
+    );
+  };
+
+  const handleRemoveFromCart = (productId: number) => {
+    setCart((prev) => prev.filter((item) => item.product.id !== productId));
+  };
+
+  // Cálculos totales del carrito
+  const totalItemsCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+  const totalAmount = cart.reduce((acc, item) => acc + item.unit_price * item.quantity, 0);
 
   const effectivePayment =
     saleType === 'CONTADO'
@@ -200,34 +280,13 @@ export default function POSPage() {
 
   const balanceDue = Math.max(0, totalAmount - effectivePayment);
 
-  const handleSelectProduct = (product: Product) => {
-    setSelectedProductId(product.id);
-    setSearchQuery('');
-    setIsDropdownOpen(false);
-  };
-
-  // Cambio de almacén (Limpia el producto seleccionado para evitar mezclar almacenes)
-  const handleInventorySwitch = (type: 'INTERNO' | 'CEDIS') => {
-    setPosInventoryType(type);
-    setSelectedProductId('');
-    setSearchQuery('');
-  };
-
-  // Procesar Venta
+  // Procesar Venta Multi-producto
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFeedback(null);
 
-    if (!selectedProductId) {
-      setFeedback({ type: 'error', message: 'Selecciona un producto para continuar.' });
-      return;
-    }
-
-    if (selectedProduct && quantity > selectedProduct.stock) {
-      setFeedback({
-        type: 'error',
-        message: `Stock insuficiente. Solo quedan ${selectedProduct.stock} unidades de ${selectedProduct.name}.`,
-      });
+    if (cart.length === 0) {
+      setFeedback({ type: 'error', message: 'Agrega al menos un producto al carrito para continuar.' });
       return;
     }
 
@@ -237,13 +296,11 @@ export default function POSPage() {
       const payload = {
         customer_name: customerName.trim() || 'Cliente Mostrador',
         sale_type: saleType,
-        input_items: [
-          {
-            product_id: Number(selectedProductId),
-            quantity: quantity,
-            unit_price: unitPrice,
-          },
-        ],
+        input_items: cart.map((item) => ({
+          product_id: item.product.id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+        })),
         initial_payment: {
           amount: effectivePayment,
           payment_method: paymentMethod,
@@ -256,23 +313,27 @@ export default function POSPage() {
 
       setFeedback({
         type: 'success',
-        message: `¡Venta #${response.data.id} registrada exitosamente desde ${posInventoryType}!`,
+        message: `¡Venta #${response.data.id} (${totalItemsCount} piezas) registrada exitosamente desde ${posInventoryType}!`,
       });
 
-      // Limpiar formulario
-      setCustomerName('');
-      setQuantity(1);
-      setInitialPayment('');
-      setSelectedProductId('');
-      
-      // Actualizar stock localmente
+      // Descontar stock localmente de todos los productos vendidos
       setProducts((prev) =>
-        prev.map((p) => (p.id === Number(selectedProductId) ? { ...p, stock: p.stock - quantity } : p))
+        prev.map((p) => {
+          const soldItem = cart.find((item) => item.product.id === p.id);
+          return soldItem ? { ...p, stock: p.stock - soldItem.quantity } : p;
+        })
       );
+
+      // Limpiar carrito y formulario
+      setCart([]);
+      setCustomerName('');
+      setInitialPayment('');
     } catch (err: any) {
+      const errorData = err.response?.data;
       const errorMsg =
-        err.response?.data?.non_field_errors?.[0] ||
-        err.response?.data?.detail ||
+        (Array.isArray(errorData) && errorData[0]) ||
+        errorData?.non_field_errors?.[0] ||
+        errorData?.detail ||
         'Ocurrió un error al procesar la venta.';
       setFeedback({ type: 'error', message: errorMsg });
     } finally {
@@ -287,18 +348,23 @@ export default function POSPage() {
         <div>
           <h1 className="text-2xl font-black text-slate-900">Punto de Venta (POS)</h1>
           <p className="text-xs text-slate-500">
-            Surtido actual desde: <strong className="text-fuchsia-600">{posInventoryType === 'INTERNO' ? 'Inventario Interno' : 'Centro de Distribución (CEDIS)'}</strong>
+            Surtido actual desde:{' '}
+            <strong className="text-fuchsia-600">
+              {posInventoryType === 'INTERNO' ? 'Inventario Interno' : 'Centro de Distribución (CEDIS)'}
+            </strong>
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
-          {/* Pestañas para cambiar entre Interno y CEDIS */}
+          {/* Pestañas Interno / CEDIS */}
           <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
             <button
               type="button"
               onClick={() => handleInventorySwitch('INTERNO')}
               className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
-                posInventoryType === 'INTERNO' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                posInventoryType === 'INTERNO'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               🏠 Interno
@@ -307,7 +373,9 @@ export default function POSPage() {
               type="button"
               onClick={() => handleInventorySwitch('CEDIS')}
               className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
-                posInventoryType === 'CEDIS' ? 'bg-fuchsia-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                posInventoryType === 'CEDIS'
+                  ? 'bg-fuchsia-600 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               🏭 CEDIS
@@ -325,9 +393,13 @@ export default function POSPage() {
       </div>
 
       {feedback && (
-        <div className={`p-4 rounded-2xl text-xs font-bold border transition-all ${
-          feedback.type === 'success' ? 'bg-emerald-50 text-emerald-900 border-emerald-200' : 'bg-rose-50 text-rose-900 border-rose-200'
-        }`}>
+        <div
+          className={`p-4 rounded-2xl text-xs font-bold border transition-all ${
+            feedback.type === 'success'
+              ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+              : 'bg-rose-50 text-rose-900 border-rose-200'
+          }`}
+        >
           {feedback.message}
           {lastCreatedSale && (
             <div className="mt-3">
@@ -344,36 +416,67 @@ export default function POSPage() {
       )}
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Panel Principal de Captura */}
+        {/* Panel Principal de Captura y Carrito */}
         <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-pink-100 shadow-xl shadow-pink-500/5 space-y-6">
-          
-          {/* Modalidad de Venta */}
-          <div>
-            <label className="block text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">
-              Modalidad de Venta
-            </label>
-            <div className="grid grid-cols-3 gap-2 p-1.5 bg-slate-100/80 rounded-2xl">
-              {(['CONTADO', 'CREDITO', 'ANTICIPO'] as const).map((type) => (
+          {/* Modalidad de Venta y Lista de Precios */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">
+                Modalidad de Venta
+              </label>
+              <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl">
+                {(['CONTADO', 'CREDITO', 'ANTICIPO'] as const).map((type) => (
+                  <button
+                    type="button"
+                    key={type}
+                    onClick={() => setSaleType(type)}
+                    className={`py-2.5 rounded-xl text-xs font-bold capitalize transition-all duration-200 ${
+                      saleType === type
+                        ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-md'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {type.toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">
+                Tarifa de Precio
+              </label>
+              <div className="grid grid-cols-2 gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl">
                 <button
                   type="button"
-                  key={type}
-                  onClick={() => setSaleType(type)}
-                  className={`py-3 rounded-xl text-xs font-bold capitalize transition-all duration-200 ${
-                    saleType === type
-                      ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-lg shadow-fuchsia-500/25 scale-[1.02]'
+                  onClick={() => handlePriceTierSwitch('PUBLIC')}
+                  className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    priceTier === 'PUBLIC'
+                      ? 'bg-slate-900 text-white shadow-md'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  {type.toLowerCase()}
+                  Precio Público
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => handlePriceTierSwitch('SELLER')}
+                  className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    priceTier === 'SELLER'
+                      ? 'bg-fuchsia-600 text-white shadow-md'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Precio Vendedora
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Cliente y Selector de Categorías de Aromas */}
+          {/* Cliente y Selector de Categorías */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Cliente Final</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Cliente / Vendedora</label>
               <input
                 type="text"
                 value={customerName}
@@ -383,7 +486,6 @@ export default function POSPage() {
               />
             </div>
 
-            {/* Selector de Categorías */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">Filtrar por Categoría</label>
               <select
@@ -393,27 +495,25 @@ export default function POSPage() {
               >
                 <option value="ALL">Todas las Categorías ({filteredProducts.length} en {posInventoryType})</option>
                 {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Buscador de Fragancias / Productos */}
+          {/* Buscador para Agregar Múltiples Productos */}
           <div className="relative">
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Seleccionar Perfume / Producto ({fetchingData ? 'Cargando...' : `${filteredProducts.length} disponibles en ${posInventoryType}`})
+              Agregar Producto al Carrito ({fetchingData ? 'Cargando...' : `${filteredProducts.length} disponibles`})
             </label>
-            
+
             <div
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-slate-900 cursor-pointer flex justify-between items-center hover:border-fuchsia-300 transition"
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-slate-600 cursor-pointer flex justify-between items-center hover:border-fuchsia-400 transition"
             >
-              <span className="truncate">
-                {selectedProduct
-                  ? `[${selectedProduct.code}] ${selectedProduct.name} - $${selectedProduct.public_price}`
-                  : `Seleccionar fragancia del ${posInventoryType}...`}
-              </span>
+              <span>+ Buscar y agregar fragancia o producto...</span>
               <span className="text-slate-400 text-xs">▼</span>
             </div>
 
@@ -429,58 +529,129 @@ export default function POSPage() {
                 />
                 <div className="max-h-56 overflow-y-auto space-y-1">
                   {filteredProducts.length === 0 ? (
-                    <div className="p-3 text-xs text-slate-400 text-center">No se encontraron fragancias en {posInventoryType}</div>
+                    <div className="p-3 text-xs text-slate-400 text-center">
+                      No se encontraron productos en {posInventoryType}
+                    </div>
                   ) : (
-                    filteredProducts.map((p) => (
-                      <div
-                        key={p.id}
-                        onClick={() => handleSelectProduct(p)}
-                        className={`p-2.5 rounded-xl text-xs flex justify-between items-center cursor-pointer transition ${
-                          selectedProductId === p.id ? 'bg-fuchsia-50 text-fuchsia-900 font-bold' : 'hover:bg-slate-50 text-slate-800'
-                        }`}
-                      >
-                        <div>
-                          <p className="font-semibold">{p.name}</p>
-                          <p className="text-[10px] text-slate-400">Código: {p.code} | {p.category_name || 'General'}</p>
+                    filteredProducts.map((p) => {
+                      const activePrice = priceTier === 'PUBLIC' ? p.public_price : p.seller_price;
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => handleAddToCart(p)}
+                          className={`p-2.5 rounded-xl text-xs flex justify-between items-center cursor-pointer transition ${
+                            p.stock <= 0 ? 'opacity-50 bg-slate-50' : 'hover:bg-fuchsia-50 text-slate-800'
+                          }`}
+                        >
+                          <div>
+                            <p className="font-semibold">{p.name}</p>
+                            <p className="text-[10px] text-slate-400">
+                              Código: {p.code} | {p.category_name || 'General'}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-fuchsia-600">${activePrice}</p>
+                            <p className={`text-[10px] font-bold ${p.stock <= 0 ? 'text-rose-500' : 'text-slate-500'}`}>
+                              {p.stock <= 0 ? 'Agotado' : `Stock: ${p.stock}`}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-fuchsia-600">${p.public_price}</p>
-                          <p className="text-[10px] text-slate-500">Stock: {p.stock}</p>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Cantidad y Método de Pago */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Cantidad</label>
-              <input
-                type="number"
-                min="1"
-                max={selectedProduct?.stock || 1}
-                value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-slate-900 focus:border-fuchsia-400 outline-none transition"
-              />
+          {/* Lista de Productos Agregados (Carrito) */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-slate-700">
+                Productos en el Ticket ({cart.length} SKUs / {totalItemsCount} pzas)
+              </label>
+              {cart.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setCart([])}
+                  className="text-[11px] font-bold text-rose-500 hover:underline"
+                >
+                  Vaciar carrito
+                </button>
+              )}
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Método de Pago</label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as any)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-slate-900 focus:border-fuchsia-400 outline-none transition"
-              >
-                <option value="EFECTIVO">Efectivo</option>
-                <option value="TRANSFERENCIA">Transferencia SPEI</option>
-                <option value="TARJETA">Tarjeta Débito / Crédito</option>
-              </select>
-            </div>
+            {cart.length === 0 ? (
+              <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center text-xs text-slate-400">
+                Aún no has agregado productos. Usa el buscador de arriba para armar la venta.
+              </div>
+            ) : (
+              <div className="border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-100">
+                {cart.map((item) => (
+                  <div key={item.product.id} className="p-3 bg-slate-50/50 flex items-center justify-between gap-3 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-slate-900 truncate">{item.product.name}</p>
+                      <p className="text-[10px] text-slate-500 font-mono">
+                        {item.product.code} · ${item.unit_price.toFixed(2)} c/u
+                      </p>
+                    </div>
+
+                    {/* Controles de Cantidad */}
+                    <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-1">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateCartQty(item.product.id, item.quantity - 1)}
+                        className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-700"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        max={item.product.stock}
+                        value={item.quantity}
+                        onChange={(e) => handleUpdateCartQty(item.product.id, parseInt(e.target.value) || 1)}
+                        className="w-10 text-center font-bold text-slate-900 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateCartQty(item.product.id, item.quantity + 1)}
+                        className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-700"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    <div className="text-right w-20 font-bold text-slate-900">
+                      ${(item.unit_price * item.quantity).toFixed(2)}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFromCart(item.product.id)}
+                      className="text-slate-400 hover:text-rose-600 font-bold px-1"
+                      title="Quitar producto"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Método de Pago */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">Método de Pago</label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value as any)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-slate-900 focus:border-fuchsia-400 outline-none transition"
+            >
+              <option value="EFECTIVO">Efectivo</option>
+              <option value="TRANSFERENCIA">Transferencia SPEI</option>
+              <option value="TARJETA">Tarjeta Débito / Crédito</option>
+            </select>
           </div>
 
           {/* Anticipo o Crédito */}
@@ -513,7 +684,7 @@ export default function POSPage() {
 
           <button
             type="submit"
-            disabled={loading || fetchingData || !selectedProductId}
+            disabled={loading || fetchingData || cart.length === 0}
             className="w-full bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:opacity-95 disabled:opacity-50 text-white font-extrabold py-4 rounded-2xl text-xs tracking-wide transition shadow-xl shadow-fuchsia-500/20 hover:scale-[1.01]"
           >
             {loading ? 'PROCESANDO VENTA...' : `⚡ PROCESAR VENTA (${posInventoryType})`}
@@ -524,7 +695,9 @@ export default function POSPage() {
         <div className="bg-white p-6 rounded-3xl border border-pink-100 shadow-xl shadow-pink-500/5 space-y-4 h-fit">
           <h3 className="font-bold text-slate-900 border-b border-slate-100 pb-3 flex justify-between items-center">
             <span>Resumen POS</span>
-            <span className="text-[10px] bg-fuchsia-100 text-fuchsia-800 px-2 py-0.5 rounded-md font-black">{posInventoryType}</span>
+            <span className="text-[10px] bg-fuchsia-100 text-fuchsia-800 px-2 py-0.5 rounded-md font-black">
+              {posInventoryType}
+            </span>
           </h3>
           <div className="space-y-3 text-xs">
             <div className="flex justify-between text-slate-500">
@@ -536,18 +709,16 @@ export default function POSPage() {
               <span className="font-extrabold text-fuchsia-600 capitalize">{saleType}</span>
             </div>
             <div className="flex justify-between text-slate-500">
-              <span>Producto:</span>
-              <span className="font-bold text-slate-800 truncate max-w-[130px]">
-                {selectedProduct ? selectedProduct.name : '-'}
+              <span>Tarifa Aplicada:</span>
+              <span className="font-bold text-slate-800">
+                {priceTier === 'PUBLIC' ? 'Público' : 'Vendedora'}
               </span>
             </div>
             <div className="flex justify-between text-slate-500">
-              <span>Cantidad:</span>
-              <span className="font-bold text-slate-800">{quantity}</span>
-            </div>
-            <div className="flex justify-between text-slate-500">
-              <span>Precio Unitario:</span>
-              <span className="font-bold text-slate-800">${unitPrice.toFixed(2)}</span>
+              <span>Artículos:</span>
+              <span className="font-bold text-slate-800">
+                {cart.length} ({totalItemsCount} pzas)
+              </span>
             </div>
 
             <hr className="border-slate-100 my-2" />
@@ -601,11 +772,17 @@ export default function POSPage() {
                             {sale.sale_type}
                           </span>
                           {sale.status === 'PAGADO' ? (
-                            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">Liquidado</span>
+                            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                              Liquidado
+                            </span>
                           ) : sale.status === 'CANCELADO' ? (
-                            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">Cancelada</span>
+                            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">
+                              Cancelada
+                            </span>
                           ) : (
-                            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">Pendiente</span>
+                            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
+                              Pendiente
+                            </span>
                           )}
                         </div>
                         <p className="text-xs text-slate-600">Cliente: {sale.customer_name || 'General'}</p>
@@ -644,7 +821,6 @@ export default function POSPage() {
                       </div>
                     </div>
 
-                    {/* Desglose de Progreso de Pago para Crédito / Anticipo */}
                     {sale.sale_type !== 'CONTADO' && (
                       <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 text-[11px]">
                         <div>
@@ -685,7 +861,9 @@ export default function POSPage() {
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-extrabold text-slate-900">Registrar Abono</h3>
-                <p className="text-xs text-slate-500">Venta #{activeSaleForPayment.id} | {activeSaleForPayment.customer_name}</p>
+                <p className="text-xs text-slate-500">
+                  Venta #{activeSaleForPayment.id} | {activeSaleForPayment.customer_name}
+                </p>
               </div>
               <button
                 onClick={() => setIsPaymentModalOpen(false)}
