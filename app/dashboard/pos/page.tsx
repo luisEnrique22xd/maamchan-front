@@ -214,8 +214,8 @@ export default function POSPage() {
     setPriceTier(tier);
     setCart((prev) =>
       prev.map((item) => {
-        let basePrice = tier === 'PUBLIC' 
-          ? parseFloat(item.product.public_price) 
+        let basePrice = tier === 'PUBLIC'
+          ? parseFloat(item.product.public_price)
           : parseFloat(item.product.seller_price);
 
         if (tier === 'SELLER') {
@@ -237,8 +237,8 @@ export default function POSPage() {
       return;
     }
 
-    let price = priceTier === 'PUBLIC' 
-      ? parseFloat(product.public_price) 
+    let price = priceTier === 'PUBLIC'
+      ? parseFloat(product.public_price)
       : parseFloat(product.seller_price);
 
     // Si la tarifa activa es VENDEDORA, aplicamos el 30% de descuento (multiplicando por 0.70)
@@ -265,8 +265,10 @@ export default function POSPage() {
   };
 
   // Modificar cantidad o quitar del carrito
+  // Modificar cantidad o quitar del carrito (Permite negativos para devoluciones)
   const handleUpdateCartQty = (productId: number, newQty: number) => {
-    if (newQty <= 0) {
+    // Si la cantidad llega a 0, removemos el producto
+    if (newQty === 0) {
       setCart((prev) => prev.filter((item) => item.product.id !== productId));
       return;
     }
@@ -274,10 +276,14 @@ export default function POSPage() {
     setCart((prev) =>
       prev.map((item) => {
         if (item.product.id !== productId) return item;
-        if (newQty > item.product.stock) {
-          alert(`Solo hay ${item.product.stock} unidades disponibles.`);
+
+        // Si es positivo (lleva producto), validamos contra el stock disponible
+        if (newQty > 0 && newQty > item.product.stock) {
+          alert(`Solo hay ${item.product.stock} unidades disponibles en ${posInventoryType}.`);
           return item;
         }
+
+        // Si es negativo (devuelve producto), no hay límite de stock físico en tienda
         return { ...item, quantity: newQty };
       })
     );
@@ -379,22 +385,20 @@ export default function POSPage() {
             <button
               type="button"
               onClick={() => handleInventorySwitch('INTERNO')}
-              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
-                posInventoryType === 'INTERNO'
+              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${posInventoryType === 'INTERNO'
                   ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-900'
-              }`}
+                }`}
             >
               🏠 Interno
             </button>
             <button
               type="button"
               onClick={() => handleInventorySwitch('CEDIS')}
-              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
-                posInventoryType === 'CEDIS'
+              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${posInventoryType === 'CEDIS'
                   ? 'bg-fuchsia-600 text-white shadow-sm'
                   : 'text-slate-500 hover:text-slate-900'
-              }`}
+                }`}
             >
               🏭 CEDIS
             </button>
@@ -412,11 +416,10 @@ export default function POSPage() {
 
       {feedback && (
         <div
-          className={`p-4 rounded-2xl text-xs font-bold border transition-all ${
-            feedback.type === 'success'
+          className={`p-4 rounded-2xl text-xs font-bold border transition-all ${feedback.type === 'success'
               ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
               : 'bg-rose-50 text-rose-900 border-rose-200'
-          }`}
+            }`}
         >
           {feedback.message}
           {lastCreatedSale && (
@@ -448,11 +451,10 @@ export default function POSPage() {
                     type="button"
                     key={type}
                     onClick={() => setSaleType(type)}
-                    className={`py-2.5 rounded-xl text-xs font-bold capitalize transition-all duration-200 ${
-                      saleType === type
+                    className={`py-2.5 rounded-xl text-xs font-bold capitalize transition-all duration-200 ${saleType === type
                         ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-md'
                         : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     {type.toLowerCase()}
                   </button>
@@ -468,22 +470,20 @@ export default function POSPage() {
                 <button
                   type="button"
                   onClick={() => handlePriceTierSwitch('PUBLIC')}
-                  className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
-                    priceTier === 'PUBLIC'
+                  className={`py-2.5 rounded-xl text-xs font-bold transition-all ${priceTier === 'PUBLIC'
                       ? 'bg-slate-900 text-white shadow-md'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   Precio Público
                 </button>
                 <button
                   type="button"
                   onClick={() => handlePriceTierSwitch('SELLER')}
-                  className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
-                    priceTier === 'SELLER'
+                  className={`py-2.5 rounded-xl text-xs font-bold transition-all ${priceTier === 'SELLER'
                       ? 'bg-fuchsia-600 text-white shadow-md'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   Precio Vendedora
                 </button>
@@ -557,9 +557,8 @@ export default function POSPage() {
                         <div
                           key={p.id}
                           onClick={() => handleAddToCart(p)}
-                          className={`p-2.5 rounded-xl text-xs flex justify-between items-center cursor-pointer transition ${
-                            p.stock <= 0 ? 'opacity-50 bg-slate-50' : 'hover:bg-fuchsia-50 text-slate-800'
-                          }`}
+                          className={`p-2.5 rounded-xl text-xs flex justify-between items-center cursor-pointer transition ${p.stock <= 0 ? 'opacity-50 bg-slate-50' : 'hover:bg-fuchsia-50 text-slate-800'
+                            }`}
                         >
                           <div>
                             <p className="font-semibold">{p.name}</p>
@@ -615,26 +614,28 @@ export default function POSPage() {
                     </div>
 
                     {/* Controles de Cantidad */}
+                    {/* Controles de Cantidad en el Carrito */}
                     <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-1">
                       <button
                         type="button"
                         onClick={() => handleUpdateCartQty(item.product.id, item.quantity - 1)}
                         className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-700"
+                        title="Restar cantidad / Devolver"
                       >
                         -
                       </button>
                       <input
                         type="number"
-                        min="1"
-                        max={item.product.stock}
+                        // Quitamos el min="1" estricto para permitir negativos (ej: -10)
                         value={item.quantity}
-                        onChange={(e) => handleUpdateCartQty(item.product.id, parseInt(e.target.value) || 1)}
-                        className="w-10 text-center font-bold text-slate-900 outline-none"
+                        onChange={(e) => handleUpdateCartQty(item.product.id, parseInt(e.target.value) || 0)}
+                        className="w-12 text-center font-bold text-slate-900 outline-none"
                       />
                       <button
                         type="button"
                         onClick={() => handleUpdateCartQty(item.product.id, item.quantity + 1)}
                         className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-700"
+                        title="Sumar cantidad"
                       >
                         +
                       </button>
