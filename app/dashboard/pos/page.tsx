@@ -57,7 +57,8 @@ export default function POSPage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
 
   // Estados del formulario de Venta
-  const [saleType, setSaleType] = useState<'CONTADO' | 'CREDITO' | 'ANTICIPO'>('CONTADO');
+  const [saleType, setSaleType] = useState<'CONTADO' | 'CREDITO' | 'ANTICIPO' | 'CAMBIO'>('CONTADO');
+  const [changeDirection, setChangeDirection] = useState<'RETURN' | 'TAKE'>('RETURN');
   const [customerName, setCustomerName] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA'>('EFECTIVO');
   const [initialPayment, setInitialPayment] = useState<string>('');
@@ -232,37 +233,43 @@ export default function POSPage() {
 
   // Agregar producto al carrito (con 30% de descuento si es Precio Vendedora)
   const handleAddToCart = (product: Product) => {
-    if (product.stock <= 0) {
-      alert(`"${product.name}" está agotado en ${posInventoryType}.`);
-      return;
-    }
+  // Si es venta normal o si en el cambio es lo que SE LLEVA nuevo, validamos stock
+  const isReturning = saleType === 'CAMBIO' && changeDirection === 'RETURN';
 
-    let price = priceTier === 'PUBLIC'
-      ? parseFloat(product.public_price)
-      : parseFloat(product.seller_price);
+  if (!isReturning && product.stock <= 0) {
+    alert(`"${product.name}" está agotado en ${posInventoryType}.`);
+    return;
+  }
 
-    // Si la tarifa activa es VENDEDORA, aplicamos el 30% de descuento (multiplicando por 0.70)
-    if (priceTier === 'SELLER') {
-      price = price * 0.70;
-    }
+  let price = priceTier === 'PUBLIC' ? parseFloat(product.public_price) : parseFloat(product.seller_price);
+  if (priceTier === 'SELLER') price = price * 0.70;
 
-    setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        if (existing.quantity + 1 > product.stock) {
-          alert(`Stock máximo alcanzado (${product.stock} uds. disponibles).`);
-          return prev;
-        }
-        return prev.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
+  // Si es devolución, la cantidad inicial es -1; si es compra normal o entrega nueva, es +1
+  const initialQty = isReturning ? -1 : 1;
+
+  setCart((prev) => {
+    // Buscamos si ya existe en el carrito CON EL MISMO SENTIDO (para permitir devolver y llevar el mismo SKU si fuera el caso)
+    const existing = prev.find(
+      (item) => item.product.id === product.id && (item.quantity < 0) === isReturning
+    );
+
+    if (existing) {
+      const nextQty = existing.quantity + initialQty;
+      if (!isReturning && nextQty > product.stock) {
+        alert(`Stock máximo alcanzado (${product.stock} uds. disponibles).`);
+        return prev;
       }
-      return [...prev, { product, quantity: 1, unit_price: price }];
-    });
+      return prev.map((item) =>
+        item === existing ? { ...item, quantity: nextQty } : item
+      );
+    }
 
-    setSearchQuery('');
-    setIsDropdownOpen(false);
-  };
+    return [...prev, { product, quantity: initialQty, unit_price: price }];
+  });
+
+  setSearchQuery('');
+  setIsDropdownOpen(false);
+};
 
   // Modificar cantidad o quitar del carrito
   // Modificar cantidad o quitar del carrito (Permite negativos para devoluciones)
@@ -445,21 +452,27 @@ export default function POSPage() {
               <label className="block text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">
                 Modalidad de Venta
               </label>
-              <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl">
-                {(['CONTADO', 'CREDITO', 'ANTICIPO'] as const).map((type) => (
-                  <button
-                    type="button"
-                    key={type}
-                    onClick={() => setSaleType(type)}
-                    className={`py-2.5 rounded-xl text-xs font-bold capitalize transition-all duration-200 ${saleType === type
-                        ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-md'
-                        : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                  >
-                    {type.toLowerCase()}
-                  </button>
-                ))}
-              </div>
+              <div className="grid grid-cols-4 gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl">
+  {(['CONTADO', 'CREDITO', 'ANTICIPO', 'CAMBIO'] as const).map((type) => (
+    <button
+      type="button"
+      key={type}
+      onClick={() => {
+        setSaleType(type);
+        if (type === 'CAMBIO') setChangeDirection('RETURN');
+      }}
+      className={`py-2.5 rounded-xl text-[11px] font-bold capitalize transition-all ${
+        saleType === type
+          ? type === 'CAMBIO'
+            ? 'bg-amber-500 text-white shadow-md'
+            : 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-md'
+          : 'text-slate-600 hover:text-slate-900'
+      }`}
+    >
+      {type.toLowerCase()}
+    </button>
+  ))}
+</div>
             </div>
 
             <div>
@@ -520,6 +533,35 @@ export default function POSPage() {
               </select>
             </div>
           </div>
+          {saleType === 'CAMBIO' && (
+  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
+    <p className="text-xs font-extrabold text-amber-900">🔄 Modo Cambio de Mercancía</p>
+    <div className="grid grid-cols-2 gap-2">
+      <button
+        type="button"
+        onClick={() => setChangeDirection('RETURN')}
+        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition ${
+          changeDirection === 'RETURN'
+            ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+        }`}
+      >
+        📥 1. Lo que DEVUELVE (Entra)
+      </button>
+      <button
+        type="button"
+        onClick={() => setChangeDirection('TAKE')}
+        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition ${
+          changeDirection === 'TAKE'
+            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+        }`}
+      >
+        📤 2. Lo que LLEVA (Sale)
+      </button>
+    </div>
+  </div>
+)}
 
           {/* Buscador para Agregar Múltiples Productos */}
           <div className="relative">
@@ -597,7 +639,7 @@ export default function POSPage() {
                 </button>
               )}
             </div>
-
+            
             {cart.length === 0 ? (
               <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center text-xs text-slate-400">
                 Aún no has agregado productos. Usa el buscador de arriba para armar la venta.
@@ -612,6 +654,17 @@ export default function POSPage() {
                         {item.product.code} · ${item.unit_price.toFixed(2)} c/u
                       </p>
                     </div>
+                    {item.quantity < 0 ? (
+  <span className="text-[10px] font-black bg-rose-100 text-rose-700 px-2 py-0.5 rounded-md mr-1.5">
+    DEVUELVE ({Math.abs(item.quantity)})
+  </span>
+) : (
+  saleType === 'CAMBIO' && (
+    <span className="text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md mr-1.5">
+      LLEVA ({item.quantity})
+    </span>
+  )
+)}
 
                     {/* Controles de Cantidad */}
                     {/* Controles de Cantidad en el Carrito */}
