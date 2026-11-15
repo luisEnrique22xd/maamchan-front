@@ -66,12 +66,11 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [summaryRes, salesRes, campaignRes] = await Promise.all([
-          api.get<DashboardSummary>('/sales/dashboard-summary/'),
+       const [summaryRes, salesRes, campaignRes] = await Promise.all([
+          api.get('/sales/dashboard-summary/'),
           api.get<Sale[]>('/sales/'),
-          api.get('/sales/active-campaign/'), // Endpoint que actualizamos en Django
+          api.get('/campaigns/active-campaign/'), // <--- Apuntando a la ruta correcta bajo api/
         ]);
-
         setSummary(summaryRes.data);
 
         const salesData = Array.isArray(salesRes.data) ? salesRes.data : (salesRes.data as any).results;
