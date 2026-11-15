@@ -202,7 +202,7 @@ export default function DashboardPage() {
                 <span className="text-xs font-black uppercase tracking-wider text-fuchsia-600 bg-pink-50 px-3 py-1 rounded-full">
                   {currentCampaign.name}
                 </span>
-                <h3 className="text-lg font-black text-slate-900 mt-2">Progreso del Ciclo Actual</h3>
+                <h3 className="text-lg font-black text-slate-900 mt-2">Progreso de la Campaña Actual</h3>
               </div>
               <div className="text-right">
                 <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Día en Curso</span>
