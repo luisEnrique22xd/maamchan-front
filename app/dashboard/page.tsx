@@ -127,20 +127,25 @@ export default function DashboardPage() {
   };
 
   // Valores simulados/respaldo por si el backend aún no manda el objeto campaign
-  const campaignData = summary?.campaign || {
-    name: 'Campaña 16*26',
-    current_day: 2,
-    total_days: 21,
-    progress_percentage: 10,
-    goal_orders: 30,
-    current_orders: 3,
-    new_clients_pct: 50,
-    reactivations_pct: 30,
-    resort_pct: 20
+  const [campaignData, setCampaignData] = useState<any>(null);
+
+useEffect(() => {
+  const fetchDashboardData = async () => {
+    try {
+      // Llamada al endpoint de Django que acabamos de actualizar
+      const response = await api.get('/sales/active-campaign/');
+      
+      // Guardamos el objeto campaign que viene del backend
+      setCampaignData(response.data.campaign);
+    } catch (error) {
+      console.error('Error al cargar la campaña:', error);
+    }
   };
 
+  fetchDashboardData();
+}, []);
   // Generador dinámico de los bloques de días (ej. 21 días)
-  const daysArray = Array.from({ length: campaignData.total_days }, (_, i) => i + 1);
+  const daysArray = Array.from({ length: campaignData?.total_days }, (_, i) => i + 1);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -207,25 +212,25 @@ export default function DashboardPage() {
               </div>
               
               <div className="grid grid-cols-7 sm:grid-cols-21 gap-1 py-1">
-                {daysArray.map((day) => {
-                  const isPassed = day < campaignData.current_day;
-                  const isCurrent = day === campaignData.current_day;
-                  return (
-                    <div
-                      key={day}
-                      title={`Día ${day}`}
-                      className={`h-6 rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${
-                        isCurrent
-                          ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-md shadow-fuchsia-500/30 scale-110 ring-2 ring-pink-300'
-                          : isPassed
-                          ? 'bg-fuchsia-100 text-fuchsia-700'
-                          : 'bg-slate-100 text-slate-400'
-                      }`}
-                    >
-                      {day}
-                    </div>
-                  );
-                })}
+                {/* Generador dinámico de los bloques según los días que mande Django */}
+{Array.from({ length: campaignData?.total_days || 21 }, (_, i) => i + 1).map((day) => {
+  const isPassed = day < (campaignData?.current_day || 1);
+  const isCurrent = day === (campaignData?.current_day || 1);
+  return (
+    <div
+      key={day}
+      className={`h-6 rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${
+        isCurrent
+          ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-md scale-110 ring-2 ring-pink-300'
+          : isPassed
+          ? 'bg-fuchsia-100 text-fuchsia-700'
+          : 'bg-slate-100 text-slate-400'
+      }`}
+    >
+      {day}
+    </div>
+  );
+})}
               </div>
             </div>
 
