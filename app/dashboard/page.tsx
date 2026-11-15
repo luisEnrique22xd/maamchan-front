@@ -215,8 +215,8 @@ export default function DashboardPage() {
             {/* Visualizador de Días (Bloques Estilo Calendario Chantal) */}
             <div className="space-y-2 mt-4">
               <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                <span>Inicio (Día 1)</span>
-                <span>Cierre (Día {currentCampaign.total_days})</span>
+                <span>Fecha de Inicio (Día 1)</span>
+                <span>Fecha de Cierre (Día {currentCampaign.total_days})</span>
               </div>
               
               <div className="grid grid-cols-7 sm:grid-cols-21 gap-1 py-1">
