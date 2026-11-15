@@ -31,22 +31,24 @@ interface DashboardSummary {
     team: string;
     sales: string;
   }[];
-  campaign?: {
-    name: string;
-    current_day: number;
-    total_days: number;
-    progress_percentage: number;
-    goal_orders: number;
-    current_orders: number;
-    new_clients_pct: number;
-    reactivations_pct: number;
-    resort_pct: number;
-  };
+}
+
+interface CampaignData {
+  name: string;
+  current_day: number;
+  total_days: number;
+  progress_percentage: number;
+  goal_orders: number;
+  current_orders: number;
+  new_clients_pct: number;
+  reactivations_pct: number;
+  resort_pct: number;
 }
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [transactions, setTransactions] = useState<Sale[]>([]);
+  const [campaignData, setCampaignData] = useState<CampaignData | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Estado para el Modo Privacidad (Oculto por defecto como pidió la administradora)
@@ -64,15 +66,21 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [summaryRes, salesRes] = await Promise.all([
+        const [summaryRes, salesRes, campaignRes] = await Promise.all([
           api.get<DashboardSummary>('/sales/dashboard-summary/'),
           api.get<Sale[]>('/sales/'),
+          api.get('/sales/active-campaign/'), // Endpoint que actualizamos en Django
         ]);
 
         setSummary(summaryRes.data);
 
         const salesData = Array.isArray(salesRes.data) ? salesRes.data : (salesRes.data as any).results;
         setTransactions(salesData || []);
+
+        // Guardamos la información de la campaña activa que calcula el backend
+        if (campaignRes.data && campaignRes.data.campaign) {
+          setCampaignData(campaignRes.data.campaign);
+        }
       } catch (error) {
         console.error('Error al cargar datos del dashboard:', error);
       } finally {
@@ -126,26 +134,21 @@ export default function DashboardPage() {
     }
   };
 
-  // Valores simulados/respaldo por si el backend aún no manda el objeto campaign
-  const [campaignData, setCampaignData] = useState<any>(null);
-
-useEffect(() => {
-  const fetchDashboardData = async () => {
-    try {
-      // Llamada al endpoint de Django que acabamos de actualizar
-      const response = await api.get('/sales/active-campaign/');
-      
-      // Guardamos el objeto campaign que viene del backend
-      setCampaignData(response.data.campaign);
-    } catch (error) {
-      console.error('Error al cargar la campaña:', error);
-    }
+  // Valores de respaldo por si está cargando
+  const currentCampaign = campaignData || {
+    name: 'Cargando Campaña...',
+    current_day: 1,
+    total_days: 21,
+    progress_percentage: 0,
+    goal_orders: 0,
+    current_orders: 0,
+    new_clients_pct: 0,
+    reactivations_pct: 0,
+    resort_pct: 0
   };
 
-  fetchDashboardData();
-}, []);
   // Generador dinámico de los bloques de días (ej. 21 días)
-  const daysArray = Array.from({ length: campaignData?.total_days }, (_, i) => i + 1);
+  const daysArray = Array.from({ length: currentCampaign.total_days }, (_, i) => i + 1);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -192,14 +195,14 @@ useEffect(() => {
             <div className="flex justify-between items-center mb-4">
               <div>
                 <span className="text-xs font-black uppercase tracking-wider text-fuchsia-600 bg-pink-50 px-3 py-1 rounded-full">
-                  {campaignData.name}
+                  {currentCampaign.name}
                 </span>
                 <h3 className="text-lg font-black text-slate-900 mt-2">Progreso del Ciclo Actual</h3>
               </div>
               <div className="text-right">
                 <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Día en Curso</span>
                 <span className="text-xl font-black text-fuchsia-600">
-                  Día {campaignData.current_day} <span className="text-xs text-slate-400 font-normal">/ {campaignData.total_days}</span>
+                  Día {currentCampaign.current_day} <span className="text-xs text-slate-400 font-normal">/ {currentCampaign.total_days}</span>
                 </span>
               </div>
             </div>
@@ -208,29 +211,28 @@ useEffect(() => {
             <div className="space-y-2 mt-4">
               <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 <span>Inicio (Día 1)</span>
-                <span>Cierre (Día {campaignData.total_days})</span>
+                <span>Cierre (Día {currentCampaign.total_days})</span>
               </div>
               
               <div className="grid grid-cols-7 sm:grid-cols-21 gap-1 py-1">
-                {/* Generador dinámico de los bloques según los días que mande Django */}
-{Array.from({ length: campaignData?.total_days || 21 }, (_, i) => i + 1).map((day) => {
-  const isPassed = day < (campaignData?.current_day || 1);
-  const isCurrent = day === (campaignData?.current_day || 1);
-  return (
-    <div
-      key={day}
-      className={`h-6 rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${
-        isCurrent
-          ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-md scale-110 ring-2 ring-pink-300'
-          : isPassed
-          ? 'bg-fuchsia-100 text-fuchsia-700'
-          : 'bg-slate-100 text-slate-400'
-      }`}
-    >
-      {day}
-    </div>
-  );
-})}
+                {daysArray.map((day) => {
+                  const isPassed = day < currentCampaign.current_day;
+                  const isCurrent = day === currentCampaign.current_day;
+                  return (
+                    <div
+                      key={day}
+                      className={`h-6 rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${
+                        isCurrent
+                          ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-md scale-110 ring-2 ring-pink-300'
+                          : isPassed
+                          ? 'bg-fuchsia-100 text-fuchsia-700'
+                          : 'bg-slate-100 text-slate-400'
+                      }`}
+                    >
+                      {day}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -238,19 +240,19 @@ useEffect(() => {
             <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden p-0.5 mt-6">
               <div 
                 className={`h-full rounded-full transition-all duration-500 ${
-                  campaignData.progress_percentage >= 100 
+                  currentCampaign.progress_percentage >= 100 
                     ? 'bg-gradient-to-r from-emerald-500 to-teal-500' 
-                    : campaignData.progress_percentage >= 50 
+                    : currentCampaign.progress_percentage >= 50 
                     ? 'bg-gradient-to-r from-fuchsia-600 to-pink-500' 
                     : 'bg-gradient-to-r from-amber-500 to-rose-500'
                 }`} 
-                style={{ width: `${Math.min(campaignData.progress_percentage, 100)}%` }}
+                style={{ width: `${Math.min(currentCampaign.progress_percentage, 100)}%` }}
               />
             </div>
             
             <div className="flex justify-between items-center mt-3 text-xs font-bold text-slate-600">
-              <span>Pedidos actuales: <strong className="text-slate-900">{campaignData.current_orders}</strong> / Meta: {campaignData.goal_orders}</span>
-              <span className="text-fuchsia-600">{campaignData.progress_percentage}% Completado</span>
+              <span>Pedidos actuales: <strong className="text-slate-900">{currentCampaign.current_orders}</strong> / Meta: {currentCampaign.goal_orders}</span>
+              <span className="text-fuchsia-600">{currentCampaign.progress_percentage}% Completado</span>
             </div>
           </div>
 
@@ -267,30 +269,30 @@ useEffect(() => {
             <div>
               <div className="flex justify-between text-xs font-bold mb-1">
                 <span className="text-slate-600">Consultoras Nuevas</span>
-                <span className="text-fuchsia-600">{campaignData.new_clients_pct}%</span>
+                <span className="text-fuchsia-600">{currentCampaign.new_clients_pct}%</span>
               </div>
               <div className="w-full bg-slate-100 rounded-full h-2">
-                <div className="bg-fuchsia-600 h-2 rounded-full" style={{ width: `${campaignData.new_clients_pct}%` }} />
+                <div className="bg-fuchsia-600 h-2 rounded-full" style={{ width: `${currentCampaign.new_clients_pct}%` }} />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between text-xs font-bold mb-1">
                 <span className="text-slate-600">Reactivaciones</span>
-                <span className="text-pink-600">{campaignData.reactivations_pct}%</span>
+                <span className="text-pink-600">{currentCampaign.reactivations_pct}%</span>
               </div>
               <div className="w-full bg-slate-100 rounded-full h-2">
-                <div className="bg-pink-500 h-2 rounded-full" style={{ width: `${campaignData.reactivations_pct}%` }} />
+                <div className="bg-pink-500 h-2 rounded-full" style={{ width: `${currentCampaign.reactivations_pct}%` }} />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between text-xs font-bold mb-1">
                 <span className="text-slate-600">Resurtidos / Activas</span>
-                <span className="text-emerald-600">{campaignData.resort_pct}%</span>
+                <span className="text-emerald-600">{currentCampaign.resort_pct}%</span>
               </div>
               <div className="w-full bg-slate-100 rounded-full h-2">
-                <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${campaignData.resort_pct}%` }} />
+                <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${currentCampaign.resort_pct}%` }} />
               </div>
             </div>
           </div>
