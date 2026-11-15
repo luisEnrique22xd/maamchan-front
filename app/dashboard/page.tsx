@@ -66,22 +66,28 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-       const [summaryRes, salesRes, campaignRes] = await Promise.all([
+        // 1. Cargas principales independientes de las campañas
+        const [summaryRes, salesRes] = await Promise.all([
           api.get('/sales/dashboard-summary/'),
-          api.get<Sale[]>('/sales/'),
-          api.get('/campaigns/active-campaign/'), // <--- Apuntando a la ruta correcta bajo api/
+          api.get('/sales/'),
         ]);
-        setSummary(summaryRes.data);
 
-        const salesData = Array.isArray(salesRes.data) ? salesRes.data : (salesRes.data as any).results;
+        setSummary(summaryRes.data);
+        const salesData = Array.isArray(salesRes.data) ? salesRes.data : salesRes.data.results;
         setTransactions(salesData || []);
 
-        // Guardamos la información de la campaña activa que calcula el backend
+      } catch (error) {
+        console.error('Error al cargar datos generales del dashboard:', error);
+      }
+
+      // 2. Petición de campañas totalmente aislada para que jamás rompa React
+      try {
+        const campaignRes = await api.get('/campaigns/active-campaign/');
         if (campaignRes.data && campaignRes.data.campaign) {
           setCampaignData(campaignRes.data.campaign);
         }
-      } catch (error) {
-        console.error('Error al cargar datos del dashboard:', error);
+      } catch (campErr) {
+        console.warn('Aviso: La campaña no pudo cargarse, usando respaldo local.');
       } finally {
         setLoading(false);
       }
