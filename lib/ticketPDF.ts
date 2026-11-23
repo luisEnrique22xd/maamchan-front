@@ -76,15 +76,18 @@ export async function downloadTicketPDF(sale: Sale) {
   try {
     const canvas = await html2canvas(container, { scale: 2 });
     const imgData = canvas.toDataURL('image/png');
-    
+
+    const ticketWidthMm = 80;
+    const rawHeightMm = (canvas.height * ticketWidthMm) / canvas.width;
+    const ticketHeightMm = Math.max(120, Math.ceil(rawHeightMm + 6));
+
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: [80, 160] 
+      format: [ticketWidthMm, ticketHeightMm],
     });
 
-    const imgHeight = (canvas.height * 80) / canvas.width;
-    pdf.addImage(imgData, 'PNG', 0, 0, 80, imgHeight);
+    pdf.addImage(imgData, 'PNG', 0, 0, ticketWidthMm, rawHeightMm);
     pdf.save(`Ticket_Venta_${sale.id}.pdf`);
   } catch (err) {
     console.error('Error al generar el PDF del ticket:', err);
