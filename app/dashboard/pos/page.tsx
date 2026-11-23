@@ -45,6 +45,10 @@ interface Sale {
 }
 
 export default function POSPage() {
+  const roundMoney = (val: number): number => {
+  return Math.round((val + Number.EPSILON) * 100) / 100;
+};
+
   const [posInventoryType, setPosInventoryType] = useState<'INTERNO' | 'CEDIS'>('INTERNO');
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -220,8 +224,8 @@ export default function POSPage() {
           : parseFloat(item.product.seller_price);
 
         if (tier === 'SELLER') {
-          basePrice = basePrice * 0.70; // Aplica el 30% de descuento
-        }
+  basePrice = roundMoney(basePrice * 0.70);
+}
 
         return {
           ...item,
@@ -242,7 +246,7 @@ export default function POSPage() {
   }
 
   let price = priceTier === 'PUBLIC' ? parseFloat(product.public_price) : parseFloat(product.seller_price);
-  if (priceTier === 'SELLER') price = price * 0.70;
+  if (priceTier === 'SELLER') price = roundMoney(price * 0.70);
 
   // Si es devolución, la cantidad inicial es -1; si es compra normal o entrega nueva, es +1
   const initialQty = isReturning ? -1 : 1;
@@ -302,14 +306,14 @@ export default function POSPage() {
 
   // Cálculos totales del carrito
   const totalItemsCount = cart.reduce((acc, item) => acc + item.quantity, 0);
-  const totalAmount = cart.reduce((acc, item) => acc + item.unit_price * item.quantity, 0);
+  const totalAmount = roundMoney(cart.reduce((acc, item) => acc + item.unit_price * item.quantity, 0));
 
   const effectivePayment =
     saleType === 'CONTADO'
       ? totalAmount
-      : Math.min(parseFloat(initialPayment) || 0, totalAmount);
+      : roundMoney(Math.min(parseFloat(initialPayment) || 0, totalAmount));
 
-  const balanceDue = Math.max(0, totalAmount - effectivePayment);
+  const balanceDue = roundMoney(Math.max(0, totalAmount - effectivePayment));
 
   // Procesar Venta Multi-producto
   const handleSubmit = async (e: React.FormEvent) => {
@@ -330,10 +334,10 @@ export default function POSPage() {
         input_items: cart.map((item) => ({
           product_id: item.product.id,
           quantity: item.quantity,
-          unit_price: item.unit_price,
+          unit_price:roundMoney(item.unit_price),
         })),
         initial_payment: {
-          amount: effectivePayment,
+          amount: roundMoney(effectivePayment),
           payment_method: paymentMethod,
           reference: 'Pago Inicial POS',
         },
